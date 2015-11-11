@@ -7,7 +7,7 @@ from ckan.lib.helpers import json
 from ckan.lib.munge import munge_tag
 from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
-from ckanext.geocat.metadata as md 
+import ckanext.geocat.metadata as md 
 
 from pylons import config
 
