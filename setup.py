@@ -79,5 +79,7 @@ setup(
     entry_points='''
         [ckan.plugins]
         geocat_harvester=ckanext.geocat.harvester:GeocatHarvester
+        [paste.paster_command]
+        geocat=ckanext.geocat.commands:GeocatCommand
     ''',
 )
