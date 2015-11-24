@@ -71,7 +71,11 @@ class GeocatHarvester(HarvesterBase):
             csw_url = harvest_job.source.url.rstrip('/')
             csw = md.CswHelper(url=csw_url)
 
-            for record_id in csw.get_id_by_search(cql="csw:AnyText Like '%Eisenbahn%'"):
+            cql = config.get('cql', None)
+            if cql is None:
+                cql = "csw:AnyText Like '%Lärm%'"
+                
+            for record_id in csw.get_id_by_search(cql=cql):
                 harvest_obj = HarvestObject(
                     guid=record_id,
                     job=harvest_job
