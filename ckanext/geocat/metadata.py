@@ -248,6 +248,17 @@ class DcatMetadata(object):
             dcat_metadata[key] = attribute.get_value(
                 xml=meta_xml
             )
+        dcat_metadata['description'] = {'de': 'DE DEsc', 'fr': 'FR desc', 'it': '', 'en': ''}
+        dcat_metadata['title'] = {'de': 'DE Title', 'fr': 'FR TItle', 'it': '', 'en': ''}
+        dcat_metadata['language'] = ['de']
+        dcat_metadata['publishers'] = [{'label': 'Bundesarchiv'}]
+        dcat_metadata['contact_points'] = [{'email': 'odi@liip.ch', 'name': 'Odi'}]
+        dcat_metadata['relations'] = []
+        dcat_metadata['see_alsos'] = []
+        dcat_metadata['temporals'] = []
+        dcat_metadata['distribution'] = []
+        dcat_metadata['owner_org'] = 'swisstopo'
+        dcat_metadata['groups'] = []
         return dcat_metadata
 
 
@@ -258,12 +269,10 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
         self.csw = CswHelper('http://www.geocat.ch/geonetwork/srv/eng/csw')
         self.dist = GeocatDcatDistributionMetadata()
 
-    def get_metadata(self):
-        for xml_elem, value in self.csw.get_by_search(cql="csw:AnyText Like '%Eisenbahn%'"):
-            log.debug("VALUE: %s" % value)
-            dataset = self.load(xml_elem)
-            dataset['resources'] = list(self.dist.get_metadata(xml_elem))
-            yield dataset
+    def get_metadata(self, id):
+        xml = self.csw.get_by_id(id=id)
+        dataset = self.load(xml)
+        return dataset
 
     def get_mapping(self):
         return {
@@ -321,14 +330,14 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
             'title': StringValue(''),
             'description': StringValue(''),
             'language': StringValue(''),
-            'issued': StringValue(''),
+            'issued': StringValue('982137213'),
             'modified': StringValue(''),
-            'accessURL': StringValue(''),
+            'accessURL': StringValue('http://access.url'),
             'rights': StringValue(''),
             'license': StringValue(''),
             'identifier': StringValue(''),
             'downloadURL': StringValue(''),
-            'byteSize': StringValue(''),
+            'byteSize': StringValue('0'),
             'mediaType': StringValue(''),
             'format': StringValue(''),
             'coverage': StringValue(''),
@@ -339,6 +348,7 @@ class GeocatCatalogueServiceWeb(CatalogueServiceWeb):
     def __init__(self, *args, **kwargs):
         self.xml_elem = defaultdict()
         super(GeocatCatalogueServiceWeb, self).__init__(*args, **kwargs)
+
     def _parserecords(self, outputschema, esn):
         if outputschema == namespaces['che']:
             for i in self._exml.findall('//'+util.nspath('CHE_MD_Metadata', namespaces['che'])):
@@ -351,36 +361,47 @@ class GeocatCatalogueServiceWeb(CatalogueServiceWeb):
 
 
 class CswHelper(object):
-    def __init__(self, url):
+    def __init__(self, url='http://www.geocat.ch/geonetwork/srv/eng/csw'):
         self.catalog = GeocatCatalogueServiceWeb(url, skip_caps=True)
         self.schema = namespaces['che']
 
-    def get_by_search(self, searchterm='', propertyname='csw:AnyText', cql=None):
+    def get_id_by_search(self, searchterm='', propertyname='csw:AnyText', cql=None):
         """ Returns the found csw dataset with the given searchterm """
         if cql is None:
             cql = "%s like '%%%s%%'" % (propertyname, searchterm)
-        self.catalog.getrecords2(
-            cql=cql,
-            outputschema=self.schema
-        )
-        if self.catalog.response == None or self.catalog.results['matches'] == 0:
-            raise DatasetNotFoundError("No dataset for the given searchterm '%s' (%s) found" % (searchterm, propertyname))
-        # return a generator
-        for id, value in self.catalog.records.iteritems():
-            yield (self.catalog.xml_elem[id], value)
 
+        nextrecord = 0
+        while nextrecord is not None:
+            self._make_csw_request(cql, startposition=nextrecord)
+
+
+            log.debug("----------------------------------------")
+            log.debug("CSW Result: %s" % self.catalog.results)
+            log.debug("----------------------------------------")
+
+            if self.catalog.response == None or self.catalog.results['matches'] == 0:
+                raise DatasetNotFoundError("No dataset for the given searchterm '%s' (%s) found" % (searchterm, propertyname))
+
+            # return a generator
+            for id in self.catalog.records:
+                yield id
+
+            if self.catalog.results['returned'] > 0:
+                nextrecord = self.catalog.results['nextrecord']
+            else:
+                nextrecord = None
+
+    def _make_csw_request(self, cql, startposition=0):
+        self.catalog.getrecords(
+            cql=cql,
+            outputschema=self.schema,
+            startposition=startposition
+        )
+        
     def get_by_id(self, id):
         """ Returns the csw dataset with the given id """
         self.catalog.getrecordbyid(id=[id], outputschema=self.schema)
         return self.catalog.response
-
-    def get_id_by_dataset_name(self, dataset_name):
-        """ 
-        Returns the id of a dataset identified by it's name.
-        If there are multiple datasets with the given name,
-        only the id of the first one is returned.
-        """
-        return self.get_by_search(dataset_name, 'title').itervalues().next().identifier
 
 
 class DatasetNotFoundError(Exception):

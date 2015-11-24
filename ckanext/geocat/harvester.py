@@ -8,6 +8,9 @@ from ckan.lib.munge import munge_tag
 from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
 import ckanext.geocat.metadata as md 
+from ckan.logic import get_action, NotFound
+from ckan import model
+from ckan.model import Session, Package, PACKAGE_NAME_MAX_LENGTH
 
 from pylons import config
 
@@ -41,14 +44,17 @@ class GeocatHarvester(HarvesterBase):
         if 'user' not in self.config:
             self.config['user'] = self.HARVEST_USER
 
-        if 'organization' not in self.config or not self.config.get('organization', None):
-            raise GeocatConfigError("Provide a config value for 'organization'")
-
         log.debug('Using config: %r' % self.config)
+
+    def _find_existing_package(self, package_dict):
+        data_dict = {'identifier': package_dict['identifier']}
+        package_show_context = {'model': model, 'session': Session,
+                                'ignore_auth': True}
+        return get_action('ogdch_dataset_by_identifier')(
+            package_show_context, data_dict)
 
     def gather_stage(self, harvest_job):
         log.debug('In GeocatHarvester gather_stage')
-        api_url = None
 
         try:
             self._set_config(harvest_job.source.config)
@@ -59,13 +65,15 @@ class GeocatHarvester(HarvesterBase):
             )
             return False
 
+        csw_url = None
         try:
             harvest_obj_ids = []
-            csw = md.CswHelper()
+            csw_url = harvest_job.source.url.rstrip('/')
+            csw = md.CswHelper(url=csw_url)
 
-            for record in csw.get_by_search('XY'):
+            for record_id in csw.get_id_by_search(cql="csw:AnyText Like '%Eisenbahn%'"):
                 harvest_obj = HarvestObject(
-                    guid=record['identifier'],
+                    guid=record_id,
                     job=harvest_job
                 )
                 harvest_obj.save()
@@ -77,7 +85,7 @@ class GeocatHarvester(HarvesterBase):
         except Exception, e:
             self._save_gather_error(
                 'Unable to get content for URL: %s: %s / %s'
-                % (base_url, str(e), traceback.format_exc()),
+                % (csw_url, str(e), traceback.format_exc()),
                 harvest_job
             )
 
@@ -93,10 +101,10 @@ class GeocatHarvester(HarvesterBase):
             )
             return False
 
-        base_url = harvest_object.source.url.rstrip('/')
+        csw_url = harvest_object.source.url.rstrip('/')
         try:
-            csw = md.CswHelper()
-            xml = csw.get_by_id('xy')
+            csw = md.CswHelper(url=csw_url)
+            xml = csw.get_by_id(harvest_object.guid)
             harvest_object.content = xml
             harvest_object.save()
             log.debug('successfully processed ' + harvest_object.guid)
@@ -105,7 +113,7 @@ class GeocatHarvester(HarvesterBase):
             self._save_object_error(
                 (
                     'Unable to get content for package: %s: %r / %s'
-                    % (api_url, e, traceback.format_exc())
+                    % (harvest_object.guid, e, traceback.format_exc())
                 ),
                 harvest_object
             )
@@ -126,13 +134,56 @@ class GeocatHarvester(HarvesterBase):
         try:
             dataset_metadata = md.GeocatDcatDatasetMetadata()
             pkg_dict = dataset_metadata.load(harvest_object.content)
-            pkg_dict['identifier'] = pkg_dict['identifier'] + '@' + self.config.get('organization', '')
 
-            dist_metadata = md.GeocatDcatDistributionMetadata()
-            pkg_dict['distribution'] = dist_metadata.load(harvest_object.content)
+            if 'organization' not in self.config:
+                context = {
+                    'model': model,
+                    'session': Session,
+                    'ignore_auth': True
+                }
+                source_dataset = get_action('package_show')(context, {'id': harvest_object.source.id})
+                self.config['organization'] = source_dataset.get('owner_org')
+
+            pkg_dict['identifier'] = '%s@%s' % (pkg_dict['identifier'], self.config['organization'])
+            pkg_dict['owner_org'] = self.config['organization']
+
+            #dist_metadata = md.GeocatDcatDistributionMetadata()
+            #pkg_dict['distribution'] = dist_metadata.load(harvest_object.content)
 
             log.debug('package dict: %s' % pkg_dict)
-            return self._create_or_update_package(pkg_dict, harvest_object)
+
+            if 'id' not in pkg_dict:
+                pkg_dict['id'] = ''
+            pkg_dict['name'] = self._gen_new_name(pkg_dict['title']['de'])
+
+            log.debug("New Name: %s" % pkg_dict['name'])
+
+            #return self._create_or_update_package(pkg_dict, harvest_object)
+            package_context = {'ignore_auth': True}
+            try:
+                existing = self._find_existing_package(pkg_dict)
+                log.debug("Existing package found, updating %s..." % existing['id'])
+                pkg_dict['name'] = existing['name']
+                pkg_dict['id'] = existing['id']
+                updated_pkg = get_action('package_update')(package_context, pkg_dict)
+                log.debug("Updated PKG: %s" % updated_pkg)
+            except NotFound:
+                log.debug("No package found, create a new one!")
+
+                harvest_object.current = True
+                model.Session.execute('SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED')
+                model.Session.flush()
+
+                created_pkg = get_action('package_create')(package_context, pkg_dict)
+
+                harvest_object.package_id = created_pkg['id']
+                harvest_object.add()
+
+                log.debug("Created PKG: %s" % created_pkg)
+
+            Session.commit()
+            return True
+
         except Exception, e:
             self._save_object_error(
                 (
