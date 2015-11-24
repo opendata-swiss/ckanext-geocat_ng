@@ -71,10 +71,11 @@ class GeocatHarvester(HarvesterBase):
             csw_url = harvest_job.source.url.rstrip('/')
             csw = md.CswHelper(url=csw_url)
 
-            cql = config.get('cql', None)
+            cql = self.config.get('cql', None)
             if cql is None:
-                cql = "csw:AnyText Like '%Lärm%'"
+                cql = "csw:AnyText Like '%Bahnhof%'"
                 
+            log.debug("CQL query: %s" % cql)
             for record_id in csw.get_id_by_search(cql=cql):
                 harvest_obj = HarvestObject(
                     guid=record_id,
@@ -136,8 +137,6 @@ class GeocatHarvester(HarvesterBase):
             return False
 
         try:
-            dataset_metadata = md.GeocatDcatDatasetMetadata()
-            pkg_dict = dataset_metadata.load(harvest_object.content)
 
             if 'organization' not in self.config:
                 context = {
@@ -146,13 +145,26 @@ class GeocatHarvester(HarvesterBase):
                     'ignore_auth': True
                 }
                 source_dataset = get_action('package_show')(context, {'id': harvest_object.source.id})
-                self.config['organization'] = source_dataset.get('owner_org')
+                self.config['organization'] = source_dataset.get('organization').get('name')
+
+            dataset_metadata = md.GeocatDcatDatasetMetadata()
+            dist_metadata = md.GeocatDcatDistributionMetadata()
+
+            pkg_dict = dataset_metadata.get_metadata(harvest_object.content)
+            dist_list = dist_metadata.get_metadata(harvest_object.content)
+
+            for dist in dist_list:
+                dist['rights'] = self.config.get('rights', 'NonCommercialNotAllowed-CommercialNotAllowed-ReferenceRequired')
 
             pkg_dict['identifier'] = '%s@%s' % (pkg_dict['identifier'], self.config['organization'])
             pkg_dict['owner_org'] = self.config['organization']
-
-            #dist_metadata = md.GeocatDcatDistributionMetadata()
-            #pkg_dict['distribution'] = dist_metadata.load(harvest_object.content)
+            pkg_dict['resources'] = dist_list
+            pkg_dict['language'] = ['de']
+            pkg_dict['relations'] = []
+            pkg_dict['see_alsos'] = []
+            pkg_dict['temporals'] = []
+            pkg_dict['groups'] = []
+            pkg_dict['keywords'] = {'de': [], 'fr': [], 'it': [], 'en': []}
 
             log.debug('package dict: %s' % pkg_dict)
 

@@ -1,4 +1,6 @@
 from lxml import etree
+from datetime import datetime
+import time
 from collections import defaultdict
 from owslib.csw import CatalogueServiceWeb
 from owslib import util
@@ -54,7 +56,10 @@ class XmlValue(Value):
 
 class XPathValue(Value):
     def get_element(self, xml, xpath):
-        return xml.xpath(xpath, namespaces=namespaces)[0]
+        result = xml.xpath(xpath, namespaces=namespaces)
+        if len(result) > 0:
+            return result[0]
+        return []
 
     def get_value(self, **kwargs):
         self.env.update(kwargs)
@@ -66,8 +71,8 @@ class XPathValue(Value):
         try:
             # this should probably return a XPathTextValue
             value = self.get_element(xml, xpath)
-        except Exception:
-            log.debug('XPath not found: %s' % xpath)
+        except etree.XPathError, e:
+            log.debug('XPath not found: %s, error: %s' % (xpath, str(e)))
             value = ''
         return value
 
@@ -248,18 +253,40 @@ class DcatMetadata(object):
             dcat_metadata[key] = attribute.get_value(
                 xml=meta_xml
             )
-        dcat_metadata['description'] = {'de': 'DE DEsc', 'fr': 'FR desc', 'it': '', 'en': ''}
-        dcat_metadata['title'] = {'de': 'DE Title', 'fr': 'FR TItle', 'it': '', 'en': ''}
-        dcat_metadata['language'] = ['de']
-        dcat_metadata['publishers'] = [{'label': 'Bundesarchiv'}]
-        dcat_metadata['contact_points'] = [{'email': 'odi@liip.ch', 'name': 'Odi'}]
-        dcat_metadata['relations'] = []
-        dcat_metadata['see_alsos'] = []
-        dcat_metadata['temporals'] = []
-        dcat_metadata['distribution'] = []
-        dcat_metadata['owner_org'] = 'swisstopo'
-        dcat_metadata['groups'] = []
-        return dcat_metadata
+        return self._clean_dataset(dcat_metadata)
+
+    def _clean_dataset(self, dataset):
+        cleaned_dataset = defaultdict(dict)
+        for k in dataset:
+            log.debug("Clean key %s" % k)
+            if k.endswith(('_de', '_fr', '_it', '_en')):
+                cleaned_dataset[k[:-3]][k[-2:]] = dataset[k]
+            else:
+                cleaned_dataset[k] = dataset[k]
+
+        for k in ('issued', 'modified'):
+            try:
+                d = datetime.strptime(cleaned_dataset[k], '%Y-%m-%d')
+                cleaned_dataset[k] = int(time.mktime(d.timetuple()))
+            except (ValueError, KeyError, TypeError):
+                continue
+
+        if 'publishers' in cleaned_dataset:
+            publishers = []
+            for publisher in cleaned_dataset['publishers']:
+                publishers.append({'label': publisher})
+            cleaned_dataset['publishers'] = publishers
+
+        if 'contact_points' in cleaned_dataset:
+            contacts = []
+            for contact in cleaned_dataset['contact_points']:
+                contacts.append({'email': contact, 'name': contact})
+            cleaned_dataset['contact_points'] = contacts
+
+        clean_dict = dict(cleaned_dataset)
+        log.debug("Cleaned dataset: %s" % clean_dict)
+
+        return clean_dict
 
 
 class GeocatDcatDatasetMetadata(DcatMetadata):
@@ -269,30 +296,49 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
         self.csw = CswHelper('http://www.geocat.ch/geonetwork/srv/eng/csw')
         self.dist = GeocatDcatDistributionMetadata()
 
-    def get_metadata(self, id):
-        xml = self.csw.get_by_id(id=id)
-        dataset = self.load(xml)
+    def get_metadata(self, xml_elem):
+        dataset = self.load(xml_elem)
         return dataset
 
     def get_mapping(self):
         return {
             'identifier': XPathTextValue('//gmd:fileIdentifier/gco:CharacterString'),  # noqa
-            'title': StringValue(''),
-            'description': StringValue(''),
-            'issued': StringValue(''),
-            'modified': StringValue(''),
-            'publisher': StringValue(''),
-            'contactPoint': StringValue(''),
+            'title_de': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#DE"]'),
+            'title_fr': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#FR"]'),
+            'title_it': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#IT"]'),
+            'title_en': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]'),
+            'description_de': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#DE"]'),
+            'description_fr': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#FR"]'),
+            'description_it': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#IT"]'),
+            'description_en': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]'),
+            'issued': FirstInOrderValue(
+                [
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:Date'),
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:Date'),
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date'),
+                ]
+            ),
+            'modified': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date'),
+            'publishers': XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact//gmd:organisationName/gco:CharacterString'),
+            'contact_points': ArrayValue(
+                [
+                    XPathMultiTextValue('.//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                    XPathMultiTextValue('.//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                    XPathMultiTextValue('.//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                    XPathMultiTextValue('.//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                    XPathMultiTextValue('.//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                ]
+            ),
             'theme': StringValue(''),
             'language': StringValue(''),
-            'relation': StringValue(''),
-            'keyword': StringValue(''),
+            'relations': StringValue(''),
+            'keywords': StringValue(''),
             'landingPage': StringValue(''),
             'spatial': StringValue(''),
             'coverage': StringValue(''),
-            'temporal': StringValue(''),
-            'accrualPeriodicity': StringValue(''),
-            'seeAlso': StringValue(''),
+            'temporals': StringValue(''),
+            'accrual_periodicity': StringValue(''),
+            'see_alsos': StringValue(''),
         }
 
 
@@ -303,42 +349,31 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         self.csw = CswHelper('http://www.geocat.ch/geonetwork/srv/eng/csw')
 
     def get_metadata(self, xml_elem):
-        distributions = self.load(xml_elem)
-        yield distributions
+        dataset = GeocatDcatDatasetMetadata()
+        dataset_meta = dataset.load(xml_elem)
+        
+        distributions = []
+        xml = etree.fromstring(xml_elem)
+        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution', namespaces=namespaces):
+            dist = self.load(dist_xml)
+            dist['issued'] = dataset_meta['issued']
+            dist['modified'] = dataset_meta['modified']
+            distributions.append(dist)
+        
+        return distributions
 
-
-    def get_metadata_keys(self):
-        return [
-            'title',
-            'description',
-            'language',
-            'issued',
-            'modified',
-            'accessURL',
-            'rights',
-            'license',
-            'identifier',
-            'downloadURL',
-            'byteSize',
-            'mediaType',
-            'format',
-            'coverage',
-        ]
-    
     def get_mapping(self):
         return {
             'title': StringValue(''),
             'description': StringValue(''),
             'language': StringValue(''),
-            'issued': StringValue('982137213'),
-            'modified': StringValue(''),
-            'accessURL': StringValue('http://access.url'),
+            'access_url': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//gmd:URL'),
             'rights': StringValue(''),
             'license': StringValue(''),
             'identifier': StringValue(''),
-            'downloadURL': StringValue(''),
-            'byteSize': StringValue('0'),
-            'mediaType': StringValue(''),
+            'download_url': StringValue(''),
+            'byte_size': StringValue('0'),
+            'media_type': StringValue(''),
             'format': StringValue(''),
             'coverage': StringValue(''),
         }
@@ -386,7 +421,7 @@ class CswHelper(object):
             for id in self.catalog.records:
                 yield id
 
-            if self.catalog.results['returned'] > 0:
+            if self.catalog.results['returned'] > 0 and self.catalog.results['nextrecord'] > 0:
                 nextrecord = self.catalog.results['nextrecord']
             else:
                 nextrecord = None
@@ -395,6 +430,7 @@ class CswHelper(object):
         self.catalog.getrecords(
             cql=cql,
             outputschema=self.schema,
+            maxrecords=50,
             startposition=startposition
         )
         
