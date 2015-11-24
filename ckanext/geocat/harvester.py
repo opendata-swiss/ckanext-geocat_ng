@@ -159,12 +159,14 @@ class GeocatHarvester(HarvesterBase):
             pkg_dict['identifier'] = '%s@%s' % (pkg_dict['identifier'], self.config['organization'])
             pkg_dict['owner_org'] = self.config['organization']
             pkg_dict['resources'] = dist_list
-            pkg_dict['language'] = ['de']
             pkg_dict['relations'] = []
             pkg_dict['see_alsos'] = []
             pkg_dict['temporals'] = []
-            pkg_dict['groups'] = []
-            pkg_dict['keywords'] = {'de': [], 'fr': [], 'it': [], 'en': []}
+            try:
+                pkg_dict['language'] = []
+                pkg_dict['language'] = dist_list[0]['language']
+            except IndexError:
+                pass
 
             log.debug('package dict: %s' % pkg_dict)
 

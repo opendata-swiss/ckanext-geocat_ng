@@ -6,7 +6,7 @@ from owslib.csw import CatalogueServiceWeb
 from owslib import util
 import owslib.iso as iso
 import logging
-from ckan.lib.munge import munge_title_to_name
+from ckan.lib.munge import munge_title_to_name, munge_tag
 log = logging.getLogger(__name__)
 
 namespaces = {
@@ -248,7 +248,6 @@ class DcatMetadata(object):
 
         dcat_metadata = {}
         for key in self.get_metadata_keys():
-            log.debug("Metadata key: %s" % key)
             attribute = self.get_attribute(key)
             dcat_metadata[key] = attribute.get_value(
                 xml=meta_xml
@@ -258,7 +257,6 @@ class DcatMetadata(object):
     def _clean_dataset(self, dataset):
         cleaned_dataset = defaultdict(dict)
         for k in dataset:
-            log.debug("Clean key %s" % k)
             if k.endswith(('_de', '_fr', '_it', '_en')):
                 cleaned_dataset[k[:-3]][k[-2:]] = dataset[k]
             else:
@@ -282,6 +280,30 @@ class DcatMetadata(object):
             for contact in cleaned_dataset['contact_points']:
                 contacts.append({'email': contact, 'name': contact})
             cleaned_dataset['contact_points'] = contacts
+
+        if 'keywords' in cleaned_dataset:
+            clean_keywords = {}
+            for lang, tag_list in cleaned_dataset['keywords'].iteritems():
+                clean_keywords[lang] = [munge_tag(tag) for tag in tag_list]
+            cleaned_dataset['keywords'] = clean_keywords
+                
+        group_mapping = {
+            'biota': 'agriculture',
+            'health': 'health',
+            'transportation': 'mobility',
+            'intelligenceMilitary': 'public-order',
+            'farming': 'agriculture',
+            'economy': 'national-economy',
+        }
+
+        if 'groups' in cleaned_dataset:
+            groups = [{'name': 'geography'}]
+            for group in cleaned_dataset['groups']:
+                if group in group_mapping:
+                    groups.append({'name': group_mapping[group]})
+                else:
+                    groups.append({'name': 'territory'})
+            cleaned_dataset['groups'] = groups
 
         clean_dict = dict(cleaned_dataset)
         log.debug("Cleaned dataset: %s" % clean_dict)
@@ -322,18 +344,21 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'publishers': XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact//gmd:organisationName/gco:CharacterString'),
             'contact_points': ArrayValue(
                 [
-                    XPathMultiTextValue('.//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
-                    XPathMultiTextValue('.//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
-                    XPathMultiTextValue('.//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
-                    XPathMultiTextValue('.//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
-                    XPathMultiTextValue('.//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
                 ]
             ),
-            'theme': StringValue(''),
+            'groups': XPathMultiTextValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode'),
             'language': StringValue(''),
             'relations': StringValue(''),
-            'keywords': StringValue(''),
-            'landingPage': StringValue(''),
+            'keywords_de': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#DE"]'),
+            'keywords_fr': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#FR"]'),
+            'keywords_it': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#IT"]'),
+            'keywords_en': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#EN"]'),
+            'landing_page': XPathTextValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL'),
             'spatial': StringValue(''),
             'coverage': StringValue(''),
             'temporals': StringValue(''),
@@ -354,25 +379,35 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         
         distributions = []
         xml = etree.fromstring(xml_elem)
-        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution', namespaces=namespaces):
+        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution[.//gmd:transferOptions//gmd:CI_OnlineResource//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:transferOptions//gmd:CI_OnlineResource//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]', namespaces=namespaces):
             dist = self.load(dist_xml)
+
+            dist['language'] = []
+            for loc, loc_url in dist['loc_url'].iteritems():
+                if loc_url:
+                    dist['language'].append(loc)
+            del dist['loc_url']
+
             dist['issued'] = dataset_meta['issued']
             dist['modified'] = dataset_meta['modified']
+            dist['format'] = ''
+            dist['media_type'] = xml.xpath('//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()', namespaces=namespaces)[0]
             distributions.append(dist)
         
         return distributions
 
     def get_mapping(self):
         return {
-            'title': StringValue(''),
-            'description': StringValue(''),
             'language': StringValue(''),
-            'access_url': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//gmd:URL'),
-            'rights': StringValue(''),
+            'url': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL'),
+            'loc_url_de': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download"]//che:LocalisedURL[@locale = "#DE"]'),
+            'loc_url_fr': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download"]//che:LocalisedURL[@locale = "#FR"]'),
+            'loc_url_it': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download"]//che:LocalisedURL[@locale = "#IT"]'),
+            'loc_url_en': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download"]//che:LocalisedURL[@locale = "#EN"]'),
             'license': StringValue(''),
             'identifier': StringValue(''),
-            'download_url': StringValue(''),
-            'byte_size': StringValue('0'),
+            'download_url': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download"]//che:LocalisedURL'),
+            'byte_size': StringValue(''),
             'media_type': StringValue(''),
             'format': StringValue(''),
             'coverage': StringValue(''),
