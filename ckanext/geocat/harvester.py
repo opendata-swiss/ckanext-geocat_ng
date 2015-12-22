@@ -162,11 +162,6 @@ class GeocatHarvester(HarvesterBase):
             pkg_dict['relations'] = []
             pkg_dict['see_alsos'] = []
             pkg_dict['temporals'] = []
-            try:
-                pkg_dict['language'] = []
-                pkg_dict['language'] = dist_list[0]['language']
-            except IndexError:
-                pass
 
             log.debug('package dict: %s' % pkg_dict)
 
