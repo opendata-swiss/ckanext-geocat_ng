@@ -268,6 +268,8 @@ class DcatMetadata(object):
                 cleaned_dataset[k] = int(time.mktime(d.timetuple()))
             except (ValueError, KeyError, TypeError):
                 continue
+        if not cleaned_dataset['issued']:
+            cleaned_dataset['issued'] = datetime.strptime('1970-1-1', '%Y-%m-%d')
 
         if 'publishers' in cleaned_dataset:
             publishers = []
