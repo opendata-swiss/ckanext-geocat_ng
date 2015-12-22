@@ -73,7 +73,7 @@ class GeocatHarvester(HarvesterBase):
 
             cql = self.config.get('cql', None)
             if cql is None:
-                cql = "csw:AnyText Like '%Bahnhof%'"
+                cql = "csw:AnyText Like '%opendata.swiss%'"
                 
             log.debug("CQL query: %s" % cql)
             for record_id in csw.get_id_by_search(cql=cql):
