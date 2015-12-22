@@ -179,16 +179,19 @@ class GeocatHarvester(HarvesterBase):
                 pkg_dict['name'] = existing['name']
                 pkg_dict['id'] = existing['id']
                 updated_pkg = get_action('package_update')(package_context, pkg_dict)
+                harvest_object.current = True
+                harvest_object.package_id = updated_pkg['id']
+                harvest_object.save()
                 log.debug("Updated PKG: %s" % updated_pkg)
             except NotFound:
                 log.debug("No package found, create a new one!")
 
-                harvest_object.current = True
                 model.Session.execute('SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED')
                 model.Session.flush()
 
                 created_pkg = get_action('package_create')(package_context, pkg_dict)
 
+                harvest_object.current = True
                 harvest_object.package_id = created_pkg['id']
                 harvest_object.add()
 
