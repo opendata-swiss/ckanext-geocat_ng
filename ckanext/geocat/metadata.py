@@ -69,7 +69,6 @@ class XPathValue(Value):
         log.debug("XPath: %s" % (xpath))
 
         try:
-            # this should probably return a XPathTextValue
             value = self.get_element(xml, xpath)
         except etree.XPathError, e:
             log.debug('XPath not found: %s, error: %s' % (xpath, str(e)))
@@ -80,6 +79,20 @@ class XPathValue(Value):
 class XPathMultiValue(XPathValue):
     def get_element(self, xml, xpath):
         return xml.xpath(xpath, namespaces=namespaces)
+
+
+class XPathSubValue(Value):
+    def get_value(self, **kwargs):
+        self.env.update(kwargs)
+        sub_attributes = self.env['sub_attributes'] if 'sub_attributes' in self.env else []
+        value = []
+        for xml_elem in self.env['xml'].xpath(self._config, namespaces=namespaces):
+            sub_values = []
+            kwargs['xml'] = xml_elem
+            for sub in sub_attributes:
+                sub_values.append(sub.get_value(**kwargs))
+            value.append(sub_values)
+        return value
 
 
 class XPathTextValue(XPathValue):
@@ -262,14 +275,24 @@ class DcatMetadata(object):
             else:
                 cleaned_dataset[k] = dataset[k]
 
-        for k in ('issued', 'modified'):
+        for k in ('issued', 'modified', 'temporals_start', 'temporals_end'):
             try:
-                d = datetime.strptime(cleaned_dataset[k], '%Y-%m-%d')
+                d = datetime.strptime(cleaned_dataset[k][0:len('YYYY-MM-DD')], '%Y-%m-%d')
                 cleaned_dataset[k] = int(time.mktime(d.timetuple()))
-            except (ValueError, KeyError, TypeError):
+            except (ValueError, KeyError, TypeError, IndexError):
                 continue
         if not cleaned_dataset['issued']:
-            cleaned_dataset['issued'] = datetime.strptime('1970-1-1', '%Y-%m-%d')
+            cleaned_dataset['issued'] = int(time.time())
+        if 'temporals_start' in cleaned_dataset and 'temporals_end' in cleaned_dataset:
+            try:
+                cleaned_dataset['temporals'] = [{
+                    'start_date': cleaned_dataset['temporals_start'],
+                    'end_date': cleaned_dataset['temporals_end'],
+                }]
+                del cleaned_dataset['temporals_start']
+                del cleaned_dataset['temporals_end']
+            except (ValueError, KeyError, TypeError, IndexError):
+                pass
 
         if 'publishers' in cleaned_dataset:
             publishers = []
@@ -282,6 +305,19 @@ class DcatMetadata(object):
             for contact in cleaned_dataset['contact_points']:
                 contacts.append({'email': contact, 'name': contact})
             cleaned_dataset['contact_points'] = contacts
+
+        if 'relations' in cleaned_dataset:
+            relations = []
+            for relation in cleaned_dataset['relations']:
+                try:
+                    label = relation[1] if relation[1] else relation[0]
+                    relations.append({'url': relation[0], 'label': label})
+                except IndexError:
+                    relations.append({'url': relation, 'label': relation})
+
+            cleaned_dataset['relations'] = relations
+        else:
+            cleaned_dataset['relations'] = []
 
         if 'keywords' in cleaned_dataset:
             clean_keywords = {}
@@ -322,6 +358,13 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
 
     def get_metadata(self, xml_elem):
         dataset = self.load(xml_elem)
+        dataset['see_alsos'] = []
+
+        if 'temporals' not in dataset:
+            dataset['temporals'] = []
+
+        if 'id' not in dataset:
+            dataset['id'] = ''
 
         lang_mapping = {
             'ger': 'de',
@@ -350,12 +393,12 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'description_en': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]'),
             'issued': FirstInOrderValue(
                 [
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:Date'),
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:Date'),
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date'),
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:DateTime'),
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:DateTime'),
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime'),
                 ]
             ),
-            'modified': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date'),
+            'modified': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime'),
             'publishers': XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact//gmd:organisationName/gco:CharacterString'),
             'contact_points': ArrayValue(
                 [
@@ -368,7 +411,13 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             ),
             'groups': XPathMultiTextValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode'),
             'language': XPathTextValue('//gmd:identificationInfo//gmd:language/gco:CharacterString'),
-            'relations': XPathTextValue('(.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL)[position()>1]'),
+            'relations': XPathSubValue(
+                '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link" or .//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal"]',
+                sub_attributes=[
+                    XPathTextValue('.//che:LocalisedURL'),
+                    XPathTextValue('.//gmd:description/gco:CharacterString'),
+                ]
+            ),
             'keywords_de': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#DE"]'),
             'keywords_fr': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#FR"]'),
             'keywords_it': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#IT"]'),
@@ -376,8 +425,9 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'url': XPathTextValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL'),
             'spatial': StringValue(''),
             'coverage': StringValue(''),
-            'temporals': StringValue(''),
-            'accrual_periodicity': StringValue(''),
+            'temporals_start': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:beginPosition'),
+            'temporals_end': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:endPosition'),
+            'accrual_periodicity': XPathTextValue('//gmd:identificationInfo//gmd:MD_MaintenanceInformation/gmd:maintenanceAndUpdateFrequency/gmd:MD_MaintenanceFrequencyCode/@codeListValue'),
             'see_alsos': StringValue(''),
         }
 

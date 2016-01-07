@@ -159,19 +159,10 @@ class GeocatHarvester(HarvesterBase):
             pkg_dict['identifier'] = '%s@%s' % (pkg_dict['identifier'], self.config['organization'])
             pkg_dict['owner_org'] = self.config['organization']
             pkg_dict['resources'] = dist_list
-            pkg_dict['relations'] = []
-            pkg_dict['see_alsos'] = []
-            pkg_dict['temporals'] = []
+            pkg_dict['name'] = self._gen_new_name(pkg_dict['title']['de'])
 
             log.debug('package dict: %s' % pkg_dict)
 
-            if 'id' not in pkg_dict:
-                pkg_dict['id'] = ''
-            pkg_dict['name'] = self._gen_new_name(pkg_dict['title']['de'])
-
-            log.debug("New Name: %s" % pkg_dict['name'])
-
-            #return self._create_or_update_package(pkg_dict, harvest_object)
             package_context = {'ignore_auth': True}
             try:
                 existing = self._find_existing_package(pkg_dict)
