@@ -391,86 +391,127 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
     def get_metadata(self, xml_elem):
         dataset = GeocatDcatDatasetMetadata()
         dataset_meta = dataset.load(xml_elem)
-        
-        distributions = []
         xml = etree.fromstring(xml_elem)
 
-        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution[.//gmd:transferOptions//gmd:CI_OnlineResource//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:transferOptions//gmd:CI_OnlineResource//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal" or .//gmd:transferOptions//gmd:CI_OnlineResource//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:transferOptions//gmd:CI_OnlineResource//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:transferOptions//gmd:CI_OnlineResource//gmd:protocol/gco:CharacterString/text() = "OGDC:WMS-http-get-capabilities" or .//gmd:transferOptions//gmd:CI_OnlineResource//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities" or .//gmd:transferOptions//gmd:CI_OnlineResource//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]', namespaces=namespaces):
-            dist = self.load(dist_xml)
+        # add media_type to dataset metadata
+        try:
+            dataset_meta['media_type'] = xml.xpath('//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()', namespaces=namespaces)[0]
+        except IndexError:
+            pass
 
-            dist['language'] = []
-            for loc, loc_url in dist['loc_url'].iteritems():
-                if loc_url:
-                    dist['language'].append(loc)
-            del dist['loc_url']
+        distributions = []
 
-            protocol_title = {
-                "OGC:WMTS-http-get-capabilities": "WMTS (GetCapabilities)",
-                "OGC:WMS-http-get-map": "WMS (GetMap)",
-                "OGC:WMS-http-get-capabilities": "WMS (GetCapabilities)",
-                "OGC:WFS-http-get-capabilities": "WFS (GetCapabilities)",
-                "CHTOPO:specialised-geoportal": "Geoportal",
-                "WWW:LINK-1.0-http--link": "Link",
-                "WWW:DOWNLOAD-1.0-http-download": "Download",
-                "WWW:DOWNLOAD-URL": "Download",
-            }
-            try:
-                title = protocol_title[dist['protocol']]
-                if dist['name']:
-                    title += ' %s' % dist['name']
+        # handle downloads
+        download_dist = GeocatDcatDownloadDistributionMetdata()
+        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]', namespaces=namespaces):
+            dist = download_dist.get_metadata(dist_xml, dataset_meta)
+            distributions.append(dist)
 
-                dist['title'] = {
-                    "de": title,
-                    "fr": title,
-                    "it": title,
-                    "en": title,
-                }
-            except KeyError:
-                dist['title'] = {
-                    "de": '',
-                    "fr": '',
-                    "it": '',
-                    "en": '',
-                }
-            del dist['name']
-            del dist['protocol']
-
-            dist['issued'] = dataset_meta['issued']
-            dist['modified'] = dataset_meta['modified']
-            dist['format'] = ''
-            dist['media_type'] = xml.xpath('//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()', namespaces=namespaces)[0]
+        # handle services
+        service_dist = GeocatDcatServiceDistributionMetdata()
+        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]', namespaces=namespaces):
+            dist = service_dist.get_metadata(dist_xml, dataset_meta)
             distributions.append(dist)
         
         return distributions
 
+    def _handle_single_distribution(self, dist_xml, dataset_meta):
+        dist = self.load(dist_xml)
+
+        dist['language'] = []
+        for loc, loc_url in dist['loc_url'].iteritems():
+            if loc_url:
+                dist['language'].append(loc)
+        del dist['loc_url']
+
+        protocol_title = {
+            "OGC:WMTS-http-get-capabilities": "WMTS (GetCapabilities)",
+            "OGC:WMS-http-get-map": "WMS (GetMap)",
+            "OGC:WMS-http-get-capabilities": "WMS (GetCapabilities)",
+            "OGC:WFS-http-get-capabilities": "WFS (GetCapabilities)",
+        }
+        try:
+            title = protocol_title[dist['protocol']]
+        except KeyError:
+            title = ''
+        if dist['name']:
+            title += ' %s' % dist['name']
+        title = title.strip()
+        if title:
+            dist['title'] = {
+                "de": title,
+                "fr": title,
+                "it": title,
+                "en": title,
+            }
+        else:
+            dist['title'] = dict(dist['description'])
+        del dist['name']
+        del dist['protocol']
+
+        dist['issued'] = dataset_meta['issued']
+        dist['modified'] = dataset_meta['modified']
+        dist['format'] = ''
+        dist['media_type'] = dataset_meta['media_type']
+        return dist
+
+
+class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
+    """ Provides access to the Geocat metadata """
+
+    def get_metadata(self, dist_xml, dataset_meta):
+        dist = self._handle_single_distribution(dist_xml, dataset_meta)
+        return dist
+
     def get_mapping(self):
         return {
-            'name': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource/gmd:name/gco:CharacterString'),
-            'protocol': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//gmd:protocol/gco:CharacterString'),
+            'name': XPathTextValue('.//gmd:name/gco:CharacterString'),
+            'protocol': XPathTextValue('.//gmd:protocol/gco:CharacterString'),
             'language': StringValue(''),
-            'url': FirstInOrderValue(
-                [
-                    XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities"]//che:LocalisedURL'),
-                    XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map"]//che:LocalisedURL'),
-                    XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities"]//che:LocalisedURL'),
-                    XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]//che:LocalisedURL'),
-                    XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal"]//che:LocalisedURL'),
-                    XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL'),
-                    XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http-download"]//che:LocalisedURL'),
-                    XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]//che:LocalisedURL'),
-                ]
-            ),
-            'description_de': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),
-            'description_fr': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),
-            'description_it': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),
-            'description_en': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]'),
-            'loc_url_de': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//che:LocalisedURL[@locale = "#DE"]'),
-            'loc_url_fr': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//che:LocalisedURL[@locale = "#FR"]'),
-            'loc_url_it': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//che:LocalisedURL[@locale = "#IT"]'),
-            'loc_url_en': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource//che:LocalisedURL[@locale = "#EN"]'),
+            'url': XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
+            'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),
+            'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),
+            'description_it': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),
+            'description_en': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]'),
+            'loc_url_de': XPathTextValue('.//che:LocalisedURL[@locale = "#DE"]'),
+            'loc_url_fr': XPathTextValue('.//che:LocalisedURL[@locale = "#FR"]'),
+            'loc_url_it': XPathTextValue('.//che:LocalisedURL[@locale = "#IT"]'),
+            'loc_url_en': XPathTextValue('.//che:LocalisedURL[@locale = "#EN"]'),
             'license': StringValue(''),
             'identifier': StringValue(''),
-            'download_url': XPathTextValue('.//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text()[contains(.,"WWW:DOWNLOAD")]]//che:LocalisedURL'),
+            'download_url': XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
+            'byte_size': StringValue(''),
+            'media_type': StringValue(''),
+            'format': StringValue(''),
+            'coverage': StringValue(''),
+        }
+
+
+class GeocatDcatServiceDistributionMetdata(GeocatDcatDistributionMetadata):
+    """ Provides access to the Geocat metadata """
+
+    def get_metadata(self, dist_xml, dataset_meta):
+        dist = self._handle_single_distribution(dist_xml, dataset_meta)
+        dist['media_type'] = ''
+        return dist
+
+    def get_mapping(self):
+        return {
+            'name': XPathTextValue('.//gmd:name/gco:CharacterString'),
+            'protocol': XPathTextValue('.//gmd:protocol/gco:CharacterString'),
+            'language': StringValue(''),
+            'url': XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
+            'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),
+            'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),
+            'description_it': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),
+            'description_en': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]'),
+            'loc_url_de': XPathTextValue('.//che:LocalisedURL[@locale = "#DE"]'),
+            'loc_url_fr': XPathTextValue('.//che:LocalisedURL[@locale = "#FR"]'),
+            'loc_url_it': XPathTextValue('.//che:LocalisedURL[@locale = "#IT"]'),
+            'loc_url_en': XPathTextValue('.//che:LocalisedURL[@locale = "#EN"]'),
+            'license': StringValue(''),
+            'identifier': StringValue(''),
+            'download_url': StringValue(''),
             'byte_size': StringValue(''),
             'media_type': StringValue(''),
             'format': StringValue(''),
