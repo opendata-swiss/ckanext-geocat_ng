@@ -275,7 +275,7 @@ class DcatMetadata(object):
             else:
                 cleaned_dataset[k] = dataset[k]
 
-        for k in ('issued', 'modified', 'temporals_start', 'temporals_end'):
+        for k in ('issued', 'modified'):
             try:
                 d = datetime.strptime(cleaned_dataset[k][0:len('YYYY-MM-DD')], '%Y-%m-%d')
                 cleaned_dataset[k] = int(time.mktime(d.timetuple()))
@@ -285,6 +285,9 @@ class DcatMetadata(object):
             cleaned_dataset['issued'] = int(time.time())
         if 'temporals_start' in cleaned_dataset and 'temporals_end' in cleaned_dataset:
             try:
+                for k in ('temporals_start', 'temporals_end'):
+                    d = datetime.strptime(cleaned_dataset[k][0:len('YYYY-MM-DD')], '%Y-%m-%d')
+                    cleaned_dataset[k] = int(time.mktime(d.timetuple()))
                 cleaned_dataset['temporals'] = [{
                     'start_date': cleaned_dataset['temporals_start'],
                     'end_date': cleaned_dataset['temporals_end'],
