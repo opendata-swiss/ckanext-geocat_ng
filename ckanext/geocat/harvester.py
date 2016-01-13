@@ -1,18 +1,14 @@
 # -*- coding: utf-8 -*-
 
-import requests
 import traceback
 
 from ckan.lib.helpers import json
-from ckan.lib.munge import munge_tag
 from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
-import ckanext.geocat.metadata as md 
+import ckanext.geocat.metadata as md
 from ckan.logic import get_action, NotFound
 from ckan import model
-from ckan.model import Session, Package, PACKAGE_NAME_MAX_LENGTH
-
-from pylons import config
+from ckan.model import Session
 
 import logging
 log = logging.getLogger(__name__)
@@ -74,7 +70,7 @@ class GeocatHarvester(HarvesterBase):
             cql = self.config.get('cql', None)
             if cql is None:
                 cql = "keyword = 'opendata.swiss'"
-                
+
             log.debug("CQL query: %s" % cql)
             for record_id in csw.get_id_by_search(cql=cql):
                 harvest_obj = HarvestObject(
@@ -144,8 +140,10 @@ class GeocatHarvester(HarvesterBase):
                     'session': Session,
                     'ignore_auth': True
                 }
-                source_dataset = get_action('package_show')(context, {'id': harvest_object.source.id})
-                self.config['organization'] = source_dataset.get('organization').get('name')
+                source_dataset = get_action('package_show')(
+                    context, {'id': harvest_object.source.id})
+                self.config['organization'] = source_dataset.get(
+                    'organization').get('name')
 
             dataset_metadata = md.GeocatDcatDatasetMetadata()
             dist_metadata = md.GeocatDcatDistributionMetadata()
@@ -154,9 +152,15 @@ class GeocatHarvester(HarvesterBase):
             dist_list = dist_metadata.get_metadata(harvest_object.content)
 
             for dist in dist_list:
-                dist['rights'] = self.config.get('rights', 'NonCommercialNotAllowed-CommercialNotAllowed-ReferenceRequired')
+                dist['rights'] = self.config.get(
+                    'rights',
+                    'NonCommercialNotAllowed-CommercialNotAllowed-ReferenceRequired'  # noqa
+                )
 
-            pkg_dict['identifier'] = '%s@%s' % (pkg_dict['identifier'], self.config['organization'])
+            pkg_dict['identifier'] = (
+                '%s@%s'
+                % (pkg_dict['identifier'], self.config['organization'])
+            )
             pkg_dict['owner_org'] = self.config['organization']
             pkg_dict['resources'] = dist_list
             pkg_dict['name'] = self._gen_new_name(pkg_dict['title']['de'])
@@ -166,10 +170,13 @@ class GeocatHarvester(HarvesterBase):
             package_context = {'ignore_auth': True}
             try:
                 existing = self._find_existing_package(pkg_dict)
-                log.debug("Existing package found, updating %s..." % existing['id'])
+                log.debug(
+                    "Existing package found, updating %s..." % existing['id']
+                )
                 pkg_dict['name'] = existing['name']
                 pkg_dict['id'] = existing['id']
-                updated_pkg = get_action('package_update')(package_context, pkg_dict)
+                updated_pkg = get_action('package_update')(
+                    package_context, pkg_dict)
                 harvest_object.current = True
                 harvest_object.package_id = updated_pkg['id']
                 harvest_object.save()
@@ -177,10 +184,13 @@ class GeocatHarvester(HarvesterBase):
             except NotFound:
                 log.debug("No package found, create a new one!")
 
-                model.Session.execute('SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED')
+                model.Session.execute(
+                    'SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED'
+                )
                 model.Session.flush()
 
-                created_pkg = get_action('package_create')(package_context, pkg_dict)
+                created_pkg = get_action('package_create')(
+                    package_context, pkg_dict)
 
                 harvest_object.current = True
                 harvest_object.package_id = created_pkg['id']
@@ -200,6 +210,7 @@ class GeocatHarvester(HarvesterBase):
                 harvest_object
             )
             return False
+
 
 class GeocatConfigError(Exception):
     pass

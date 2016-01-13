@@ -84,9 +84,9 @@ class XPathMultiValue(XPathValue):
 class XPathSubValue(Value):
     def get_value(self, **kwargs):
         self.env.update(kwargs)
-        sub_attributes = self.env['sub_attributes'] if 'sub_attributes' in self.env else []
+        sub_attributes = self.env.get('sub_attributes', [])
         value = []
-        for xml_elem in self.env['xml'].xpath(self._config, namespaces=namespaces):
+        for xml_elem in self.env['xml'].xpath(self._config, namespaces=namespaces):  # noqa
             sub_values = []
             kwargs['xml'] = xml_elem
             for sub in sub_attributes:
@@ -269,65 +269,107 @@ class DcatMetadata(object):
 
     def _clean_dataset(self, dataset):
         cleaned_dataset = defaultdict(dict)
+
+        # create language dicts from the suffixed keys
         for k in dataset:
             if k.endswith(('_de', '_fr', '_it', '_en')):
                 cleaned_dataset[k[:-3]][k[-2:]] = dataset[k]
             else:
                 cleaned_dataset[k] = dataset[k]
 
+        clean_values = {}
         for k in ('issued', 'modified'):
             try:
-                d = datetime.strptime(cleaned_dataset[k][0:len('YYYY-MM-DD')], '%Y-%m-%d')
-                cleaned_dataset[k] = int(time.mktime(d.timetuple()))
-            except (ValueError, KeyError, TypeError, IndexError):
+                clean_values[k] = self._clean_datetime(cleaned_dataset[k])
+            except ValueError:
                 continue
+
+        if all(x in cleaned_dataset
+                for x in ['temporals_start', 'temporals_end']):
+            clean_values['temporals'] = self._clean_temporals(cleaned_dataset)
+            del cleaned_dataset['temporals_start']
+            del cleaned_dataset['temporals_end']
+
+        clean_values['publishers'] = self._clean_publishers(cleaned_dataset)
+        clean_values['contact_points'] = self._clean_contact_points(
+            cleaned_dataset
+        )
+        clean_values['relations'] = self._clean_relations(cleaned_dataset)
+        clean_values['keywords'] = self._clean_keywords(cleaned_dataset)
+        clean_values['groups'] = self._clean_groups(cleaned_dataset)
+
+        # copy all cleaned values if they were in the dict before
+        # this is needed as the same cleaning code is used for dataset
+        # and distributions, but they don't have the same keys
+        for key, value in clean_values.iteritems():
+            if key in cleaned_dataset:
+                cleaned_dataset[key] = value
+
+        # set the issued date to today if it's not given
         if not cleaned_dataset['issued']:
             cleaned_dataset['issued'] = int(time.time())
-        if 'temporals_start' in cleaned_dataset and 'temporals_end' in cleaned_dataset:
-            try:
-                for k in ('temporals_start', 'temporals_end'):
-                    d = datetime.strptime(cleaned_dataset[k][0:len('YYYY-MM-DD')], '%Y-%m-%d')
-                    cleaned_dataset[k] = int(time.mktime(d.timetuple()))
-                cleaned_dataset['temporals'] = [{
-                    'start_date': cleaned_dataset['temporals_start'],
-                    'end_date': cleaned_dataset['temporals_end'],
-                }]
-                del cleaned_dataset['temporals_start']
-                del cleaned_dataset['temporals_end']
-            except (ValueError, KeyError, TypeError, IndexError):
-                pass
 
-        if 'publishers' in cleaned_dataset:
-            publishers = []
-            for publisher in cleaned_dataset['publishers']:
+        clean_dict = dict(cleaned_dataset)
+        log.debug("Cleaned dataset: %s" % clean_dict)
+
+        return clean_dict
+
+    def _clean_datetime(self, datetime_value):
+        try:
+            d = datetime.strptime(
+                datetime_value[0:len('YYYY-MM-DD')],
+                '%Y-%m-%d'
+            )
+            return int(time.mktime(d.timetuple()))
+        except (ValueError, KeyError, TypeError, IndexError):
+            raise ValueError("Could not parse datetime")
+
+    def _clean_temporals(self, pkg_dict):
+        values = {}
+        try:
+            for k in ('temporals_start', 'temporals_end'):
+                values[k] = self._clean_datetime(pkg_dict[k])
+            return [{
+                'start_date': values['temporals_start'],
+                'end_date': values['temporals_end'],
+            }]
+        except ValueError:
+            return []
+
+    def _clean_publishers(self, pkg_dict):
+        publishers = []
+        if 'publishers' in pkg_dict:
+            for publisher in pkg_dict['publishers']:
                 publishers.append({'label': publisher})
-            cleaned_dataset['publishers'] = publishers
+        return publishers
 
-        if 'contact_points' in cleaned_dataset:
-            contacts = []
-            for contact in cleaned_dataset['contact_points']:
+    def _clean_contact_points(self, pkg_dict):
+        contacts = []
+        if 'contact_points' in pkg_dict:
+            for contact in pkg_dict['contact_points']:
                 contacts.append({'email': contact, 'name': contact})
-            cleaned_dataset['contact_points'] = contacts
+        return contacts
 
-        if 'relations' in cleaned_dataset:
-            relations = []
-            for relation in cleaned_dataset['relations']:
+    def _clean_relations(self, pkg_dict):
+        relations = []
+        if 'relations' in pkg_dict:
+            for relation in pkg_dict['relations']:
                 try:
                     label = relation[1] if relation[1] else relation[0]
                     relations.append({'url': relation[0], 'label': label})
                 except IndexError:
                     relations.append({'url': relation, 'label': relation})
 
-            cleaned_dataset['relations'] = relations
-        else:
-            cleaned_dataset['relations'] = []
+        return relations
 
-        if 'keywords' in cleaned_dataset:
-            clean_keywords = {}
-            for lang, tag_list in cleaned_dataset['keywords'].iteritems():
+    def _clean_keywords(self, pkg_dict):
+        clean_keywords = {}
+        if 'keywords' in pkg_dict:
+            for lang, tag_list in pkg_dict['keywords'].iteritems():
                 clean_keywords[lang] = [munge_tag(tag) for tag in tag_list]
-            cleaned_dataset['keywords'] = clean_keywords
-                
+        return clean_keywords
+
+    def _clean_groups(self, pkg_dict):
         group_mapping = {
             'biota': 'agriculture',
             'health': 'health',
@@ -336,20 +378,15 @@ class DcatMetadata(object):
             'farming': 'agriculture',
             'economy': 'national-economy',
         }
-
-        if 'groups' in cleaned_dataset:
-            groups = [{'name': 'geography'}]
-            for group in cleaned_dataset['groups']:
+        groups = [{'name': 'geography'}]
+        if 'groups' in pkg_dict:
+            for group in pkg_dict['groups']:
                 if group in group_mapping:
                     groups.append({'name': group_mapping[group]})
                 else:
                     groups.append({'name': 'territory'})
-            cleaned_dataset['groups'] = groups
 
-        clean_dict = dict(cleaned_dataset)
-        log.debug("Cleaned dataset: %s" % clean_dict)
-
-        return clean_dict
+        return groups
 
 
 class GeocatDcatDatasetMetadata(DcatMetadata):
@@ -386,52 +423,52 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
     def get_mapping(self):
         return {
             'identifier': XPathTextValue('//gmd:fileIdentifier/gco:CharacterString'),  # noqa
-            'title_de': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#DE"]'),
-            'title_fr': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#FR"]'),
-            'title_it': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#IT"]'),
-            'title_en': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]'),
-            'description_de': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#DE"]'),
-            'description_fr': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#FR"]'),
-            'description_it': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#IT"]'),
-            'description_en': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]'),
+            'title_de': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#DE"]'),  # noqa
+            'title_fr': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#FR"]'),  # noqa
+            'title_it': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#IT"]'),  # noqa
+            'title_en': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]'),  # noqa
+            'description_de': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#DE"]'),  # noqa
+            'description_fr': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#FR"]'),  # noqa
+            'description_it': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#IT"]'),  # noqa
+            'description_en': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]'),  # noqa
             'issued': FirstInOrderValue(
                 [
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:DateTime'),
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:DateTime'),
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime'),
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:DateTime'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:DateTime'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime'),  # noqa
                 ]
             ),
-            'modified': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime'),
-            'publishers': XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact//gmd:organisationName/gco:CharacterString'),
+            'modified': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime'),  # noqa
+            'publishers': XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact//gmd:organisationName/gco:CharacterString'),  # noqa
             'contact_points': ArrayValue(
                 [
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
                 ]
             ),
-            'groups': XPathMultiTextValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode'),
-            'language': XPathTextValue('//gmd:identificationInfo//gmd:language/gco:CharacterString'),
+            'groups': XPathMultiTextValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode'),  # noqa
+            'language': XPathTextValue('//gmd:identificationInfo//gmd:language/gco:CharacterString'),  # noqa
             'relations': XPathSubValue(
-                '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"])[position()>1]',
+                '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"])[position()>1]',  # noqa
                 sub_attributes=[
                     XPathTextValue('.//che:LocalisedURL'),
                     XPathTextValue('.//gmd:description/gco:CharacterString'),
                 ]
             ),
-            'keywords_de': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#DE"]'),
-            'keywords_fr': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#FR"]'),
-            'keywords_it': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#IT"]'),
-            'keywords_en': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#EN"]'),
-            'url': XPathTextValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL'),
-            'spatial': StringValue(''),
-            'coverage': StringValue(''),
-            'temporals_start': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:beginPosition'),
-            'temporals_end': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:endPosition'),
-            'accrual_periodicity': XPathTextValue('//gmd:identificationInfo//gmd:MD_MaintenanceInformation/gmd:maintenanceAndUpdateFrequency/gmd:MD_MaintenanceFrequencyCode/@codeListValue'),
-            'see_alsos': StringValue(''),
+            'keywords_de': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#DE"]'),  # noqa
+            'keywords_fr': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#FR"]'),  # noqa
+            'keywords_it': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#IT"]'),  # noqa
+            'keywords_en': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#EN"]'),  # noqa
+            'url': XPathTextValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL'),  # noqa
+            'spatial': StringValue(''),  # noqa
+            'coverage': StringValue(''),  # noqa
+            'temporals_start': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:beginPosition'),  # noqa
+            'temporals_end': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:endPosition'),  # noqa
+            'accrual_periodicity': XPathTextValue('//gmd:identificationInfo//gmd:MD_MaintenanceInformation/gmd:maintenanceAndUpdateFrequency/gmd:MD_MaintenanceFrequencyCode/@codeListValue'),  # noqa
+            'see_alsos': StringValue(''),  # noqa
         }
 
 
@@ -448,7 +485,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
 
         # add media_type to dataset metadata
         try:
-            dataset_meta['media_type'] = xml.xpath('//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()', namespaces=namespaces)[0]
+            dataset_meta['media_type'] = xml.xpath('//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()', namespaces=namespaces)[0]  # noqa
         except IndexError:
             pass
 
@@ -456,16 +493,16 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
 
         # handle downloads
         download_dist = GeocatDcatDownloadDistributionMetdata()
-        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]', namespaces=namespaces):
+        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]', namespaces=namespaces):  # noqa
             dist = download_dist.get_metadata(dist_xml, dataset_meta)
             distributions.append(dist)
 
         # handle services
         service_dist = GeocatDcatServiceDistributionMetdata()
-        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]', namespaces=namespaces):
+        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]', namespaces=namespaces):  # noqa
             dist = service_dist.get_metadata(dist_xml, dataset_meta)
             distributions.append(dist)
-        
+
         return distributions
 
     def _handle_single_distribution(self, dist_xml, dataset_meta):
@@ -529,16 +566,16 @@ class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
                     XPathTextValue('.//gmd:linkage//gmd:URL'),
                 ]
             ),
-            'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),
-            'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),
-            'description_it': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),
-            'description_en': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]'),
-            'loc_url_de': XPathTextValue('.//che:LocalisedURL[@locale = "#DE"]'),
-            'loc_url_fr': XPathTextValue('.//che:LocalisedURL[@locale = "#FR"]'),
-            'loc_url_it': XPathTextValue('.//che:LocalisedURL[@locale = "#IT"]'),
-            'loc_url_en': XPathTextValue('.//che:LocalisedURL[@locale = "#EN"]'),
-            'license': StringValue(''),
-            'identifier': StringValue(''),
+            'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),  # noqa
+            'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),  # noqa
+            'description_it': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),  # noqa
+            'description_en': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]'),  # noqa
+            'loc_url_de': XPathTextValue('.//che:LocalisedURL[@locale = "#DE"]'),  # noqa
+            'loc_url_fr': XPathTextValue('.//che:LocalisedURL[@locale = "#FR"]'),  # noqa
+            'loc_url_it': XPathTextValue('.//che:LocalisedURL[@locale = "#IT"]'),  # noqa
+            'loc_url_en': XPathTextValue('.//che:LocalisedURL[@locale = "#EN"]'),  # noqa
+            'license': StringValue(''),  # noqa
+            'identifier': StringValue(''),  # noqa
             'download_url': FirstInOrderValue(
                 [
                     XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
@@ -562,25 +599,25 @@ class GeocatDcatServiceDistributionMetdata(GeocatDcatDistributionMetadata):
 
     def get_mapping(self):
         return {
-            'name': XPathTextValue('.//gmd:name/gco:CharacterString'),
-            'protocol': XPathTextValue('.//gmd:protocol/gco:CharacterString'),
-            'language': StringValue(''),
-            'url': XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
-            'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),
-            'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),
-            'description_it': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),
-            'description_en': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]'),
-            'loc_url_de': XPathTextValue('.//che:LocalisedURL[@locale = "#DE"]'),
-            'loc_url_fr': XPathTextValue('.//che:LocalisedURL[@locale = "#FR"]'),
-            'loc_url_it': XPathTextValue('.//che:LocalisedURL[@locale = "#IT"]'),
-            'loc_url_en': XPathTextValue('.//che:LocalisedURL[@locale = "#EN"]'),
-            'license': StringValue(''),
-            'identifier': StringValue(''),
-            'download_url': StringValue(''),
-            'byte_size': StringValue(''),
-            'media_type': StringValue(''),
-            'format': StringValue(''),
-            'coverage': StringValue(''),
+            'name': XPathTextValue('.//gmd:name/gco:CharacterString'),  # noqa
+            'protocol': XPathTextValue('.//gmd:protocol/gco:CharacterString'),  # noqa
+            'language': StringValue(''),  # noqa
+            'url': XPathTextValue('.//gmd:linkage//che:LocalisedURL'),  # noqa
+            'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),  # noqa
+            'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),  # noqa
+            'description_it': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),  # noqa
+            'description_en': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]'),  # noqa
+            'loc_url_de': XPathTextValue('.//che:LocalisedURL[@locale = "#DE"]'),  # noqa
+            'loc_url_fr': XPathTextValue('.//che:LocalisedURL[@locale = "#FR"]'),  # noqa
+            'loc_url_it': XPathTextValue('.//che:LocalisedURL[@locale = "#IT"]'),  # noqa
+            'loc_url_en': XPathTextValue('.//che:LocalisedURL[@locale = "#EN"]'),  # noqa
+            'license': StringValue(''),  # noqa
+            'identifier': StringValue(''),  # noqa
+            'download_url': StringValue(''),  # noqa
+            'byte_size': StringValue(''),  # noqa
+            'media_type': StringValue(''),  # noqa
+            'format': StringValue(''),  # noqa
+            'coverage': StringValue(''),  # noqa
         }
 
 
@@ -591,13 +628,15 @@ class GeocatCatalogueServiceWeb(CatalogueServiceWeb):
 
     def _parserecords(self, outputschema, esn):
         if outputschema == namespaces['che']:
-            for i in self._exml.findall('//'+util.nspath('CHE_MD_Metadata', namespaces['che'])):
-                val = i.find(util.nspath('fileIdentifier', namespaces['gmd']) + '/' + util.nspath('CharacterString', namespaces['gco']))
+            for i in self._exml.findall('//'+util.nspath('CHE_MD_Metadata', namespaces['che'])):  # noqa
+                val = i.find(util.nspath('fileIdentifier', namespaces['gmd']) + '/' + util.nspath('CharacterString', namespaces['gco']))  # noqa
                 identifier = self._setidentifierkey(util.testXMLValue(val))
                 self.records[identifier] = iso.MD_Metadata(i)
                 self.xml_elem[identifier] = i
         else:
-            super(GeocatCatalogueServiceWeb, self)._parserecords(outputschema, esn)
+            super(
+                GeocatCatalogueServiceWeb, self
+            )._parserecords(outputschema, esn)
 
 
 class CswHelper(object):
@@ -605,7 +644,8 @@ class CswHelper(object):
         self.catalog = GeocatCatalogueServiceWeb(url, skip_caps=True)
         self.schema = namespaces['che']
 
-    def get_id_by_search(self, searchterm='', propertyname='csw:AnyText', cql=None):
+    def get_id_by_search(self, searchterm='', propertyname='csw:AnyText',
+                         cql=None):
         """ Returns the found csw dataset with the given searchterm """
         if cql is None:
             cql = "%s like '%%%s%%'" % (propertyname, searchterm)
@@ -614,19 +654,23 @@ class CswHelper(object):
         while nextrecord is not None:
             self._make_csw_request(cql, startposition=nextrecord)
 
-
             log.debug("----------------------------------------")
             log.debug("CSW Result: %s" % self.catalog.results)
             log.debug("----------------------------------------")
 
-            if self.catalog.response == None or self.catalog.results['matches'] == 0:
-                raise DatasetNotFoundError("No dataset for the given searchterm '%s' (%s) found" % (searchterm, propertyname))
+            if (self.catalog.response is None or
+                    self.catalog.results['matches'] == 0):
+                raise DatasetNotFoundError(
+                    "No dataset for the given searchterm '%s' (%s) found"
+                    % (searchterm, propertyname)
+                )
 
             # return a generator
             for id in self.catalog.records:
                 yield id
 
-            if self.catalog.results['returned'] > 0 and self.catalog.results['nextrecord'] > 0:
+            if (self.catalog.results['returned'] > 0 and
+                    self.catalog.results['nextrecord'] > 0):
                 nextrecord = self.catalog.results['nextrecord']
             else:
                 nextrecord = None
@@ -638,7 +682,7 @@ class CswHelper(object):
             maxrecords=50,
             startposition=startposition
         )
-        
+
     def get_by_id(self, id):
         """ Returns the csw dataset with the given id """
         self.catalog.getrecordbyid(id=[id], outputschema=self.schema)
