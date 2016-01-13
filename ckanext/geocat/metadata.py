@@ -415,7 +415,7 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'groups': XPathMultiTextValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode'),
             'language': XPathTextValue('//gmd:identificationInfo//gmd:language/gco:CharacterString'),
             'relations': XPathSubValue(
-                '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link" or .//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal"]',
+                '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"])[position()>1]',
                 sub_attributes=[
                     XPathTextValue('.//che:LocalisedURL'),
                     XPathTextValue('.//gmd:description/gco:CharacterString'),
@@ -482,6 +482,8 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
             "OGC:WMS-http-get-map": "WMS (GetMap)",
             "OGC:WMS-http-get-capabilities": "WMS (GetCapabilities)",
             "OGC:WFS-http-get-capabilities": "WFS (GetCapabilities)",
+            "WWW:DOWNLOAD-1.0-http--download": "Download",
+            "WWW:DOWNLOAD-URL": "Download",
         }
         try:
             title = protocol_title[dist['protocol']]
@@ -521,7 +523,12 @@ class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
             'name': XPathTextValue('.//gmd:name/gco:CharacterString'),
             'protocol': XPathTextValue('.//gmd:protocol/gco:CharacterString'),
             'language': StringValue(''),
-            'url': XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
+            'url': FirstInOrderValue(
+                [
+                    XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
+                    XPathTextValue('.//gmd:linkage//gmd:URL'),
+                ]
+            ),
             'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),
             'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),
             'description_it': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),
@@ -532,7 +539,12 @@ class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
             'loc_url_en': XPathTextValue('.//che:LocalisedURL[@locale = "#EN"]'),
             'license': StringValue(''),
             'identifier': StringValue(''),
-            'download_url': XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
+            'download_url': FirstInOrderValue(
+                [
+                    XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
+                    XPathTextValue('.//gmd:linkage//gmd:URL'),
+                ]
+            ),
             'byte_size': StringValue(''),
             'media_type': StringValue(''),
             'format': StringValue(''),
