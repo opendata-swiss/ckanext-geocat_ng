@@ -1,16 +1,16 @@
-import logging
 import sys
 from pprint import pprint
 import ckan.lib.cli
 import ckanext.geocat.metadata as md
+
 
 class GeocatCommand(ckan.lib.cli.CkanCommand):
     '''Command to query geocat
 
     Usage::
 
-            paster --plugin="ckanext-geocat" geocat search birds -c <path to config file>
-            paster --plugin="ckanext-geocat" geocat cql "csw:AnyText like '%birds%'" -c <path to config file>
+            paster geocat search birds
+            paster geocat cql "csw:AnyText like '%birds%'"
 
     '''
     summary = __doc__.split('\n')[0]
@@ -55,4 +55,3 @@ class GeocatCommand(ckan.lib.cli.CkanCommand):
         csw = md.CswHelper('http://www.geocat.ch/geonetwork/srv/eng/csw')
         for xml, value in csw.get_by_search(query):
             print xml
-
