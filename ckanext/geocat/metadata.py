@@ -553,6 +553,15 @@ class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
 
     def get_metadata(self, dist_xml, dataset_meta):
         dist = self._handle_single_distribution(dist_xml, dataset_meta)
+
+        # if a download URL ends with zip,
+        # assume the media type is application/zip, no matter what geocat says
+        try:
+            if dist['download_url'].endswith('.zip'):
+                dist['media_type'] = 'application/zip'
+        except (KeyError, AttributeError):
+            pass
+
         return dist
 
     def get_mapping(self):
