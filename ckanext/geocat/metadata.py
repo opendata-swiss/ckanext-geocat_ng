@@ -487,7 +487,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         try:
             dataset_meta['media_type'] = xml.xpath('//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()', namespaces=namespaces)[0]  # noqa
         except IndexError:
-            pass
+            dataset_meta['media_type'] = ''
 
         distributions = []
 
@@ -544,7 +544,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         dist['issued'] = dataset_meta['issued']
         dist['modified'] = dataset_meta['modified']
         dist['format'] = ''
-        dist['media_type'] = dataset_meta['media_type']
+        dist['media_type'] = dataset_meta.get('media_type', '')
         return dist
 
 
