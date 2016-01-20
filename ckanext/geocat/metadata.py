@@ -670,8 +670,7 @@ class CswHelper(object):
             if (self.catalog.response is None or
                     self.catalog.results['matches'] == 0):
                 raise DatasetNotFoundError(
-                    "No dataset for the given searchterm '%s' (%s) found"
-                    % (searchterm, propertyname)
+                    "No dataset for the given cql '%s' found" % cql
                 )
 
             # return a generator
