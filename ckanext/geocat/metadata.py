@@ -10,6 +10,7 @@ from ckan.lib.munge import munge_title_to_name, munge_tag
 import ckanext.geocat.xml_loader as loader
 log = logging.getLogger(__name__)
 
+
 class Value(object):
     def __init__(self, config, **kwargs):
         self._config = config
@@ -198,7 +199,7 @@ class FirstInOrderValue(CombinedValue):
     def get_value(self, **kwargs):
         for attribute in self._config:
             value = attribute.get_value(**kwargs)
-            if value != '':
+            if value:
                 return value
         return ''
 
@@ -409,13 +410,18 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'description_en': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]'),  # noqa
             'issued': FirstInOrderValue(
                 [
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:DateTime'),  # noqa
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:DateTime'),  # noqa
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:Date'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:Date'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date'),  # noqa
                 ]
             ),
-            'modified': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime'),  # noqa
-            'publishers': XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact//gmd:organisationName/gco:CharacterString'),  # noqa
+            'modified': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date'),  # noqa
+            'publishers': FirstInOrderValue(
+                [
+                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact//gmd:organisationName/gco:CharacterString'),  # noqa
+                    XPathMultiTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:organisationName/gco:CharacterString'),  # noqa
+                ]
+            ),
             'contact_points': ArrayValue(
                 [
                     XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
@@ -423,6 +429,7 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
                     XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
                     XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
                     XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                    XPathMultiTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
                 ]
             ),
             'groups': XPathMultiTextValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode'),  # noqa
@@ -459,10 +466,17 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         dataset_meta = dataset.load(xml)
 
         # add media_type to dataset metadata
+        dataset_meta['media_type'] = ''
         try:
-            dataset_meta['media_type'] = loader.xpath(xml,'//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()')[0]  # noqa
+            service_media_type = loader.xpath(xml, '//gmd:identificationInfo//srv:serviceType/gco:LocalName/text()')  # noqa
+            dist_media_type = loader.xpath(xml, '//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()')  # noqa
+
+            if service_media_type:
+                dataset_meta['media_type'] = service_media_type[0]
+            if dist_media_type:
+                dataset_meta['media_type'] = dist_media_type[0]
         except IndexError:
-            dataset_meta['media_type'] = ''
+            pass
 
         distributions = []
 
@@ -476,6 +490,12 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         service_dist = GeocatDcatServiceDistributionMetdata()
         for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
             dist = service_dist.get_metadata(dist_xml, dataset_meta)
+            distributions.append(dist)
+
+        # handle service datasets
+        service_dataset = GeocatDcatServiceDatasetMetadata()
+        for dist_xml in loader.xpath(xml, '//gmd:identificationInfo//srv:containsOperations/srv:SV_OperationMetadata[.//srv:operationName//gco:CharacterString/text()]'):  # noqa
+            dist = service_dataset.get_metadata(dist_xml, dataset_meta)
             distributions.append(dist)
 
         return distributions
@@ -585,7 +605,7 @@ class GeocatDcatServiceDistributionMetdata(GeocatDcatDistributionMetadata):
         return {
             'name': XPathTextValue('.//gmd:name/gco:CharacterString'),  # noqa
             'protocol': XPathTextValue('.//gmd:protocol/gco:CharacterString'),  # noqa
-            'language': StringValue(''),  # noqa
+            'language': ArrayValue([]),  # noqa
             'url': XPathTextValue('.//gmd:linkage//che:LocalisedURL'),  # noqa
             'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),  # noqa
             'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),  # noqa
@@ -595,6 +615,38 @@ class GeocatDcatServiceDistributionMetdata(GeocatDcatDistributionMetadata):
             'loc_url_fr': XPathTextValue('.//che:LocalisedURL[@locale = "#FR"]'),  # noqa
             'loc_url_it': XPathTextValue('.//che:LocalisedURL[@locale = "#IT"]'),  # noqa
             'loc_url_en': XPathTextValue('.//che:LocalisedURL[@locale = "#EN"]'),  # noqa
+            'license': StringValue(''),  # noqa
+            'identifier': StringValue(''),  # noqa
+            'download_url': StringValue(''),  # noqa
+            'byte_size': StringValue(''),  # noqa
+            'media_type': StringValue(''),  # noqa
+            'format': StringValue(''),  # noqa
+            'coverage': StringValue(''),  # noqa
+        }
+
+
+class GeocatDcatServiceDatasetMetadata(GeocatDcatDistributionMetadata):
+    """ Provides access to the Geocat metadata """
+
+    def get_metadata(self, dist_xml, dataset_meta):
+        dist = self.load(dist_xml)
+
+        dist['description'] = dataset_meta['description']
+        dist['issued'] = dataset_meta['issued']
+        dist['modified'] = dataset_meta['modified']
+        dist['format'] = ''
+        dist['media_type'] = dataset_meta.get('media_type', '')
+        return dist
+
+    def get_mapping(self):
+        return {
+            'title_de': XPathTextValue('.//srv:operationName/gco:CharacterString'),  # noqa
+            'title_fr': XPathTextValue('.//srv:operationName/gco:CharacterString'),  # noqa
+            'title_it': XPathTextValue('.//srv:operationName/gco:CharacterString'),  # noqa
+            'title_en': XPathTextValue('.//srv:operationName/gco:CharacterString'),  # noqa
+            'language': ArrayValue([]),  # noqa
+            'url': XPathTextValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL'),  # noqa
+            'description': StringValue(''),
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
             'download_url': StringValue(''),  # noqa
