@@ -1,5 +1,6 @@
 from lxml import etree
 
+
 namespaces = {
     'atom': 'http://www.w3.org/2005/Atom',
     'che': 'http://www.geocat.ch/2008/che',
@@ -22,10 +23,12 @@ namespaces = {
     'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
 }
 
+
 def xpath(xml, xpath):
     if isinstance(xml, basestring):
         xml = from_string(xml)
     return xml.xpath(xpath, namespaces=namespaces)
+
 
 def from_string(xml_string):
     try:
