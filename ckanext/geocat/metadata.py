@@ -7,30 +7,8 @@ from owslib import util
 import owslib.iso as iso
 import logging
 from ckan.lib.munge import munge_title_to_name, munge_tag
+import ckanext.geocat.xml_loader as loader
 log = logging.getLogger(__name__)
-
-namespaces = {
-    'atom': 'http://www.w3.org/2005/Atom',
-    'che': 'http://www.geocat.ch/2008/che',
-    'csw': 'http://www.opengis.net/cat/csw/2.0.2',
-    'dc': 'http://purl.org/dc/elements/1.1/',
-    'dct': 'http://purl.org/dc/terms/',
-    'ddi': 'http://www.icpsr.umich.edu/DDI',
-    'dif': 'http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/',
-    'fgdc': 'http://www.opengis.net/cat/csw/csdgm',
-    'gco': 'http://www.isotc211.org/2005/gco',
-    'gmd': 'http://www.isotc211.org/2005/gmd',
-    'gml': 'http://www.opengis.net/gml',
-    'ogc': 'http://www.opengis.net/ogc',
-    'ows': 'http://www.opengis.net/ows',
-    'rim': 'urn:oasis:names:tc:ebxml-regrep:xsd:rim:3.0',
-    'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-    'srv': 'http://www.isotc211.org/2005/srv',
-    'xs': 'http://www.w3.org/2001/XMLSchema',
-    'xs2': 'http://www.w3.org/XML/Schema',
-    'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
-}
-
 
 class Value(object):
     def __init__(self, config, **kwargs):
@@ -56,7 +34,7 @@ class XmlValue(Value):
 
 class XPathValue(Value):
     def get_element(self, xml, xpath):
-        result = xml.xpath(xpath, namespaces=namespaces)
+        result = loader.xpath(xml, xpath)
         if len(result) > 0:
             return result[0]
         return []
@@ -78,7 +56,7 @@ class XPathValue(Value):
 
 class XPathMultiValue(XPathValue):
     def get_element(self, xml, xpath):
-        return xml.xpath(xpath, namespaces=namespaces)
+        return loader.xpath(xml, xpath)
 
 
 class XPathSubValue(Value):
@@ -86,7 +64,8 @@ class XPathSubValue(Value):
         self.env.update(kwargs)
         sub_attributes = self.env.get('sub_attributes', [])
         value = []
-        for xml_elem in self.env['xml'].xpath(self._config, namespaces=namespaces):  # noqa
+        for xml_elem in loader.xpath(self.env['xml'], self._config):  # noqa
+
             sub_values = []
             kwargs['xml'] = xml_elem
             for sub in sub_attributes:
@@ -254,10 +233,7 @@ class DcatMetadata(object):
 
     def load(self, meta_xml):
         if isinstance(meta_xml, basestring):
-            try:
-                meta_xml = etree.fromstring(meta_xml)
-            except etree.XMLSyntaxError, e:
-                raise MetadataFormatError('Could not parse XML: %r' % e)
+            meta_xml = loader.from_string(meta_xml)
 
         dcat_metadata = {}
         for key in self.get_metadata_keys():
@@ -478,14 +454,13 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         super(GeocatDcatDistributionMetadata, self).__init__()
         self.csw = CswHelper('http://www.geocat.ch/geonetwork/srv/eng/csw')
 
-    def get_metadata(self, xml_elem):
+    def get_metadata(self, xml):
         dataset = GeocatDcatDatasetMetadata()
-        dataset_meta = dataset.load(xml_elem)
-        xml = etree.fromstring(xml_elem)
+        dataset_meta = dataset.load(xml)
 
         # add media_type to dataset metadata
         try:
-            dataset_meta['media_type'] = xml.xpath('//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()', namespaces=namespaces)[0]  # noqa
+            dataset_meta['media_type'] = loader.xpath(xml,'//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()')[0]  # noqa
         except IndexError:
             dataset_meta['media_type'] = ''
 
@@ -493,13 +468,13 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
 
         # handle downloads
         download_dist = GeocatDcatDownloadDistributionMetdata()
-        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]', namespaces=namespaces):  # noqa
+        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]'):  # noqa
             dist = download_dist.get_metadata(dist_xml, dataset_meta)
             distributions.append(dist)
 
         # handle services
         service_dist = GeocatDcatServiceDistributionMetdata()
-        for dist_xml in xml.xpath('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]', namespaces=namespaces):  # noqa
+        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
             dist = service_dist.get_metadata(dist_xml, dataset_meta)
             distributions.append(dist)
 
@@ -636,9 +611,9 @@ class GeocatCatalogueServiceWeb(CatalogueServiceWeb):
         super(GeocatCatalogueServiceWeb, self).__init__(*args, **kwargs)
 
     def _parserecords(self, outputschema, esn):
-        if outputschema == namespaces['che']:
-            for i in self._exml.findall('//'+util.nspath('CHE_MD_Metadata', namespaces['che'])):  # noqa
-                val = i.find(util.nspath('fileIdentifier', namespaces['gmd']) + '/' + util.nspath('CharacterString', namespaces['gco']))  # noqa
+        if outputschema == loader.namespaces['che']:
+            for i in self._exml.findall('//'+util.nspath('CHE_MD_Metadata', loader.namespaces['che'])):  # noqa
+                val = i.find(util.nspath('fileIdentifier', loader.namespaces['gmd']) + '/' + util.nspath('CharacterString', loader.namespaces['gco']))  # noqa
                 identifier = self._setidentifierkey(util.testXMLValue(val))
                 self.records[identifier] = iso.MD_Metadata(i)
                 self.xml_elem[identifier] = i
@@ -651,7 +626,7 @@ class GeocatCatalogueServiceWeb(CatalogueServiceWeb):
 class CswHelper(object):
     def __init__(self, url='http://www.geocat.ch/geonetwork/srv/eng/csw'):
         self.catalog = GeocatCatalogueServiceWeb(url, skip_caps=True)
-        self.schema = namespaces['che']
+        self.schema = loader.namespaces['che']
 
     def get_id_by_search(self, searchterm='', propertyname='csw:AnyText',
                          cql=None):
@@ -702,8 +677,4 @@ class DatasetNotFoundError(Exception):
 
 
 class MappingNotFoundError(Exception):
-    pass
-
-
-class MetadataFormatError(Exception):
     pass
