@@ -6,6 +6,7 @@ from ckan.lib.helpers import json
 from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
 import ckanext.geocat.metadata as md
+import ckanext.geocat.xml_loader as loader
 from ckan.logic import get_action, NotFound
 from ckan import model
 from ckan.model import Session
@@ -145,11 +146,12 @@ class GeocatHarvester(HarvesterBase):
                 self.config['organization'] = source_dataset.get(
                     'organization').get('name')
 
+            xml_elem = loader.from_string(harvest_object.content)
             dataset_metadata = md.GeocatDcatDatasetMetadata()
             dist_metadata = md.GeocatDcatDistributionMetadata()
 
-            pkg_dict = dataset_metadata.get_metadata(harvest_object.content)
-            dist_list = dist_metadata.get_metadata(harvest_object.content)
+            pkg_dict = dataset_metadata.get_metadata(xml_elem)
+            dist_list = dist_metadata.get_metadata(xml_elem)
 
             for dist in dist_list:
                 dist['rights'] = self.config.get(
