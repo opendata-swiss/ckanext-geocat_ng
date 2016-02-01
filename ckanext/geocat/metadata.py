@@ -566,8 +566,8 @@ class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
             'language': StringValue(''),
             'url': FirstInOrderValue(
                 [
-                    XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
-                    XPathTextValue('.//gmd:linkage//gmd:URL'),
+                    XPathTextValue('.//gmd:linkage//che:LocalisedURL[./text()]'),  # noqa
+                    XPathTextValue('.//gmd:linkage//gmd:URL[./text()]'),
                 ]
             ),
             'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),  # noqa
@@ -582,8 +582,8 @@ class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
             'identifier': StringValue(''),  # noqa
             'download_url': FirstInOrderValue(
                 [
-                    XPathTextValue('.//gmd:linkage//che:LocalisedURL'),
-                    XPathTextValue('.//gmd:linkage//gmd:URL'),
+                    XPathTextValue('.//gmd:linkage//che:LocalisedURL[./text()]'),  # noqa
+                    XPathTextValue('.//gmd:linkage//gmd:URL[./text()]'),
                 ]
             ),
             'byte_size': StringValue(''),
@@ -606,7 +606,7 @@ class GeocatDcatServiceDistributionMetdata(GeocatDcatDistributionMetadata):
             'name': XPathTextValue('.//gmd:name/gco:CharacterString'),  # noqa
             'protocol': XPathTextValue('.//gmd:protocol/gco:CharacterString'),  # noqa
             'language': ArrayValue([]),  # noqa
-            'url': XPathTextValue('.//gmd:linkage//che:LocalisedURL'),  # noqa
+            'url': XPathTextValue('.//gmd:linkage//che:LocalisedURL[./text()]'),  # noqa
             'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),  # noqa
             'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),  # noqa
             'description_it': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),  # noqa
@@ -645,7 +645,7 @@ class GeocatDcatServiceDatasetMetadata(GeocatDcatDistributionMetadata):
             'title_it': XPathTextValue('.//srv:operationName/gco:CharacterString'),  # noqa
             'title_en': XPathTextValue('.//srv:operationName/gco:CharacterString'),  # noqa
             'language': ArrayValue([]),  # noqa
-            'url': XPathTextValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL'),  # noqa
+            'url': XPathTextValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[./text()]'),  # noqa
             'description': StringValue(''),
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
