@@ -422,16 +422,16 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
                     XPathMultiTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:organisationName/gco:CharacterString'),  # noqa
                 ]
             ),
-            'contact_points': ArrayValue(
-                [
+            'contact_points': FirstInOrderValue([
+                ArrayValue([
                     XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
                     XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
                     XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
                     XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
                     XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                    XPathMultiTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                ]
-            ),
+                ]),
+                XPathMultiTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+            ]),
             'groups': XPathMultiTextValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode'),  # noqa
             'language': XPathTextValue('//gmd:identificationInfo//gmd:language/gco:CharacterString'),  # noqa
             'relations': XPathSubValue(
