@@ -60,7 +60,7 @@ class GeocatHarvester(HarvesterBase):
                 'Config value missing: %s' % str(e),
                 harvest_job
             )
-            return False
+            return []
 
         csw_url = None
         try:
@@ -90,6 +90,7 @@ class GeocatHarvester(HarvesterBase):
                 % (csw_url, str(e), traceback.format_exc()),
                 harvest_job
             )
+            return []
 
     def fetch_stage(self, harvest_object):
         log.debug('In GeocatHarvester fetch_stage')
