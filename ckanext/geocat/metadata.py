@@ -274,6 +274,9 @@ class DcatMetadata(object):
         clean_values['relations'] = self._clean_relations(cleaned_dataset)
         clean_values['keywords'] = self._clean_keywords(cleaned_dataset)
         clean_values['groups'] = self._clean_groups(cleaned_dataset)
+        clean_values['accrual_periodicity'] = self._clean_accrual_periodicity(
+            cleaned_dataset
+        )
 
         # copy all cleaned values if they were in the dict before
         # this is needed as the same cleaning code is used for dataset
@@ -343,7 +346,7 @@ class DcatMetadata(object):
         clean_keywords = {}
         if 'keywords' in pkg_dict:
             for lang, tag_list in pkg_dict['keywords'].iteritems():
-                clean_keywords[lang] = [munge_tag(tag) for tag in tag_list]
+                clean_keywords[lang] = [munge_tag(tag) for tag in tag_list if tag != 'opendata.swiss']  # noqa
         return clean_keywords
 
     def _clean_groups(self, pkg_dict):
@@ -365,6 +368,24 @@ class DcatMetadata(object):
 
         return groups
 
+    def _clean_accrual_periodicity(self, pkg_dict):
+        frequency_mapping = {
+            'continual': 'http://purl.org/cld/freq/continuous',
+            'daily': 'http://purl.org/cld/freq/daily',
+            'weekly': 'http://purl.org/cld/freq/weekly',
+            'fortnightly': 'http://purl.org/cld/freq/biweekly',
+            'monthly': 'http://purl.org/cld/freq/monthly',
+            'quarterly': 'http://purl.org/cld/freq/quarterly',
+            'biannually': 'http://purl.org/cld/freq/semiannual',
+            'annually': 'http://purl.org/cld/freq/annual',
+            'asNeeded': 'http://purl.org/cld/freq/completelyIrregular',
+            'irregular': 'http://purl.org/cld/freq/completelyIrregular',
+        }
+        try:
+            return frequency_mapping[pkg_dict['accrual_periodicity']]
+        except KeyError:
+            return ''
+
 
 class GeocatDcatDatasetMetadata(DcatMetadata):
     """ Provides access to the Geocat metadata """
@@ -375,7 +396,6 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
 
     def get_metadata(self, xml_elem):
         dataset = self.load(xml_elem)
-        dataset['see_alsos'] = []
 
         if 'temporals' not in dataset:
             dataset['temporals'] = []
@@ -418,40 +438,58 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'modified': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date'),  # noqa
             'publishers': FirstInOrderValue(
                 [
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact//gmd:organisationName/gco:CharacterString'),  # noqa
-                    XPathMultiTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:organisationName/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:organisationName/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:organisationName/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:organisationName/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:organisationName/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:organisationName/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:organisationName/gco:CharacterString'),  # noqa
                 ]
             ),
-            'contact_points': FirstInOrderValue([
-                ArrayValue([
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                    XPathMultiTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                ]),
-                XPathMultiTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-            ]),
-            'groups': XPathMultiTextValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode'),  # noqa
-            'language': XPathTextValue('//gmd:identificationInfo//gmd:language/gco:CharacterString'),  # noqa
-            'relations': XPathSubValue(
-                '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"])[position()>1]',  # noqa
-                sub_attributes=[
-                    XPathTextValue('.//che:LocalisedURL'),
-                    XPathTextValue('.//gmd:description/gco:CharacterString'),
+            'contact_points': FirstInOrderValue(
+                [
+                    XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                    XPathTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
                 ]
+            ),
+            'groups': XPathMultiTextValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode'),  # noqa
+            'language': FirstInOrderValue(
+                [
+                    XPathTextValue('//gmd:identificationInfo//gmd:language/gco:CharacterString'),  # noqa
+                    XPathTextValue('//che:CHE_MD_Metadata/gmd:language/gco:CharacterString'),  # noqa
+                ]
+            ),
+            'relations': ArrayValue(
+                XPathSubValue(
+                    '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"])[position()>1]',  # noqa
+                    sub_attributes=[
+                        XPathTextValue('.//che:LocalisedURL'),
+                        XPathTextValue('.//gmd:description/gco:CharacterString'),  # noqa
+                    ]
+                ),
+                XPathSubValue(
+                    '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal"])',  # noqa
+                    sub_attributes=[
+                        XPathTextValue('.//che:LocalisedURL'),
+                        XPathTextValue('.//gmd:description/gco:CharacterString'),  # noqa
+                    ]
+                ),
             ),
             'keywords_de': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#DE"]'),  # noqa
             'keywords_fr': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#FR"]'),  # noqa
             'keywords_it': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#IT"]'),  # noqa
             'keywords_en': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#EN"]'),  # noqa
             'url': XPathTextValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL'),  # noqa
-            'spatial': StringValue(''),  # noqa
+            'spatial': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:description/gco:CharacterString'),  # noqa
             'coverage': StringValue(''),  # noqa
             'temporals_start': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:beginPosition'),  # noqa
             'temporals_end': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:endPosition'),  # noqa
             'accrual_periodicity': XPathTextValue('//gmd:identificationInfo//gmd:MD_MaintenanceInformation/gmd:maintenanceAndUpdateFrequency/gmd:MD_MaintenanceFrequencyCode/@codeListValue'),  # noqa
-            'see_alsos': StringValue(''),  # noqa
+            'see_alsos': XPathMultiTextValue('//gmd:identificationInfo//gmd:aggregationInfo//gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString'),  # noqa
         }
 
 
@@ -488,7 +526,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
 
         # handle services
         service_dist = GeocatDcatServiceDistributionMetdata()
-        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
+        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
             dist = service_dist.get_metadata(dist_xml, dataset_meta)
             distributions.append(dist)
 

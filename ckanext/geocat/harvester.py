@@ -121,7 +121,7 @@ class GeocatHarvester(HarvesterBase):
             )
             return False
 
-    def import_stage(self, harvest_object):
+    def import_stage(self, harvest_object):  # noqa
         log.debug('In GeocatHarvester import_stage')
         self._set_config(harvest_object.job.source.config)
 
@@ -163,9 +163,34 @@ class GeocatHarvester(HarvesterBase):
                 '%s@%s'
                 % (pkg_dict['identifier'], self.config['organization'])
             )
+
+            # geocat returns see_alsos as UUID, check if there are
+            # datasets from the same organization as the harvester
+            existing_see_alsos = []
+            for linked_uuid in pkg_dict['see_alsos']:
+                try:
+                    identifier = '%s@%s' % (
+                        linked_uuid,
+                        self.config['organization']
+                    )
+                    check_dict = {'identifier': identifier}
+                    self._find_existing_package(check_dict)
+                    existing_see_alsos.append(identifier)
+                except NotFound:
+                    continue
+            pkg_dict['see_alsos'] = existing_see_alsos
+
             pkg_dict['owner_org'] = self.config['organization']
             pkg_dict['resources'] = dist_list
             pkg_dict['name'] = self._gen_new_name(pkg_dict['title']['de'])
+
+            # legal basis
+            legal_basis_url = self.config.get('legal_basis_url', None)
+            if legal_basis_url:
+                pkg_dict['relations'].append({
+                    'url': legal_basis_url,
+                    'label': 'legal_basis'
+                })
 
             log.debug('package dict: %s' % pkg_dict)
 
