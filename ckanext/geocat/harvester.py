@@ -167,6 +167,14 @@ class GeocatHarvester(HarvesterBase):
             pkg_dict['resources'] = dist_list
             pkg_dict['name'] = self._gen_new_name(pkg_dict['title']['de'])
 
+            # legal basis
+            legal_basis_url = self.config.get('legal_basis_url', None)
+            if legal_basis_url:
+                pkg_dict['relations'].append({
+                    'url': legal_basis_url,
+                    'label': 'legal_basis'
+                })
+
             log.debug('package dict: %s' % pkg_dict)
 
             package_context = {'ignore_auth': True}
