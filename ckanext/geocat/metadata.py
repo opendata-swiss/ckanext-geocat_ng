@@ -396,7 +396,6 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
 
     def get_metadata(self, xml_elem):
         dataset = self.load(xml_elem)
-        dataset['see_alsos'] = []
 
         if 'temporals' not in dataset:
             dataset['temporals'] = []
@@ -472,7 +471,7 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'temporals_start': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:beginPosition'),  # noqa
             'temporals_end': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:endPosition'),  # noqa
             'accrual_periodicity': XPathTextValue('//gmd:identificationInfo//gmd:MD_MaintenanceInformation/gmd:maintenanceAndUpdateFrequency/gmd:MD_MaintenanceFrequencyCode/@codeListValue'),  # noqa
-            'see_alsos': StringValue(''),  # noqa
+            'see_alsos': XPathMultiTextValue('//gmd:identificationInfo//gmd:aggregationInfo//gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString'),  # noqa
         }
 
 
