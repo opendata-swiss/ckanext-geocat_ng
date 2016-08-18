@@ -274,6 +274,9 @@ class DcatMetadata(object):
         clean_values['relations'] = self._clean_relations(cleaned_dataset)
         clean_values['keywords'] = self._clean_keywords(cleaned_dataset)
         clean_values['groups'] = self._clean_groups(cleaned_dataset)
+        clean_values['accrual_periodicity'] = self._clean_accrual_periodicity(
+            cleaned_dataset
+        )
 
         # copy all cleaned values if they were in the dict before
         # this is needed as the same cleaning code is used for dataset
@@ -364,6 +367,24 @@ class DcatMetadata(object):
                     groups.append({'name': 'territory'})
 
         return groups
+
+    def _clean_accrual_periodicity(self, pkg_dict):
+        frequency_mapping = {
+            'continual': 'http://purl.org/cld/freq/continuous',
+            'daily': 'http://purl.org/cld/freq/daily',
+            'weekly': 'http://purl.org/cld/freq/weekly',
+            'fortnightly': 'http://purl.org/cld/freq/biweekly',
+            'monthly': 'http://purl.org/cld/freq/monthly',
+            'quarterly': 'http://purl.org/cld/freq/quarterly',
+            'biannually': 'http://purl.org/cld/freq/semiannual',
+            'annually': 'http://purl.org/cld/freq/annual',
+            'asNeeded': 'http://purl.org/cld/freq/completelyIrregular',
+            'irregular': 'http://purl.org/cld/freq/completelyIrregular',
+        }
+        try:
+            return frequency_mapping[pkg_dict['accrual_periodicity']]
+        except KeyError:
+            return ''
 
 
 class GeocatDcatDatasetMetadata(DcatMetadata):
