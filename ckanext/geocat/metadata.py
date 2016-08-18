@@ -346,7 +346,7 @@ class DcatMetadata(object):
         clean_keywords = {}
         if 'keywords' in pkg_dict:
             for lang, tag_list in pkg_dict['keywords'].iteritems():
-                clean_keywords[lang] = [munge_tag(tag) for tag in tag_list]
+                clean_keywords[lang] = [munge_tag(tag) for tag in tag_list if tag != 'opendata.swiss']  # noqa
         return clean_keywords
 
     def _clean_groups(self, pkg_dict):
