@@ -142,6 +142,8 @@ class ArrayValue(Value):
         value = []
         for attribute in self._config:
             new_value = attribute.get_value(**kwargs)
+            # only dig deeper, if the new_value is a sequence (e.g. a list)
+            # otherwise simply add it to the resulting value
             if is_sequence(new_value):
                 try:
                     iterator = iter(new_value)
@@ -184,6 +186,11 @@ class FirstInOrderValue(CombinedValue):
 
 
 def is_sequence(arg):
+    """
+    this functions checks if the given argument
+    is iterable (like a list or a tuple), but not
+    a string
+    """
     return (not hasattr(arg, "strip") and
             hasattr(arg, "__getitem__") or
             hasattr(arg, "__iter__"))
