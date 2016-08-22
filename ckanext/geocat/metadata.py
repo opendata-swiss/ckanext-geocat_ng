@@ -142,19 +142,18 @@ class ArrayValue(Value):
         value = []
         for attribute in self._config:
             new_value = attribute.get_value(**kwargs)
-            # only dig deeper, if the new_value is a sequence (e.g. a list)
-            # otherwise simply add it to the resulting value
-            if is_sequence(new_value):
-                try:
-                    iterator = iter(new_value)
-                    for inner_attribute in iterator:
-                        if isinstance(inner_attribute, Value):
-                            value.append(inner_attribute.get_value(**kwargs))
-                        else:
-                            value.append(inner_attribute)
-                except TypeError:
-                    value.append(new_value)
-            else:
+            try:
+                # only dig deeper, if the new_value is a sequence (e.g. a list)
+                # otherwise simply add it to the resulting value
+                if not is_sequence(new_value):
+                    raise TypeError('%s is not a sequence' % new_value)
+                iterator = iter(new_value)
+                for inner_attribute in iterator:
+                    if isinstance(inner_attribute, Value):
+                        value.append(inner_attribute.get_value(**kwargs))
+                    else:
+                        value.append(inner_attribute)
+            except TypeError:
                 value.append(new_value)
         return value
 
