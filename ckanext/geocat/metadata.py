@@ -381,9 +381,12 @@ class DcatMetadata(object):
             'asNeeded': 'http://purl.org/cld/freq/completelyIrregular',
             'irregular': 'http://purl.org/cld/freq/completelyIrregular',
         }
+        log.debug(
+            "Trying to map periodicity '%s'" % pkg_dict['accrual_periodicity']
+        )
         try:
             return frequency_mapping[pkg_dict['accrual_periodicity']]
-        except KeyError:
+        except (KeyError, TypeError):
             return ''
 
 
