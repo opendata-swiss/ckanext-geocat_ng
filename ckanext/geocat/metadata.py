@@ -143,17 +143,18 @@ class MultiValue(Value):
         separator = self.env['separator'] if 'separator' in self.env else ' '
         for attribute in self._config:
             new_value = attribute.get_value(**kwargs)
-            try:
-                iterator = iter(new_value)
-                for inner_attribute in iterator:
-                    # it should be possible to call inner_attribute.get_value
-                    # and the right thing(tm) happens'
-                    if hasattr(inner_attribute, 'text'):
-                        value = value + inner_attribute.text
-                    else:
-                        value = value + inner_attribute
-                    value = value + separator
-            except TypeError:
+            if is_sequence(new_value):
+                try:
+                    iterator = iter(new_value)
+                    for inner_attribute in iterator:
+                        if isinstance(inner_attribute, Value):
+                            value = value + inner_attribute.get_value(**kwargs)
+                        else:
+                            value = value + inner_attribute
+                        value = value + separator
+                except TypeError:
+                    value = value + new_value + separator
+            else:
                 value = value + new_value + separator
         return value.strip(separator)
 
@@ -164,16 +165,17 @@ class ArrayValue(Value):
         value = []
         for attribute in self._config:
             new_value = attribute.get_value(**kwargs)
-            try:
-                iterator = iter(new_value)
-                for inner_attribute in iterator:
-                    # it should be possible to call inner_attribute.get_value
-                    # and the right thing(tm) happens'
-                    if hasattr(inner_attribute, 'text'):
-                        value.append(inner_attribute.text)
-                    else:
-                        value.append(inner_attribute)
-            except TypeError:
+            if is_sequence(new_value):
+                try:
+                    iterator = iter(new_value)
+                    for inner_attribute in iterator:
+                        if isinstance(inner_attribute, Value):
+                            value.append(inner_attribute.get_value(**kwargs))
+                        else:
+                            value.append(inner_attribute)
+                except TypeError:
+                    value.append(new_value)
+            else:
                 value.append(new_value)
         return value
 
@@ -202,6 +204,12 @@ class FirstInOrderValue(CombinedValue):
             if value:
                 return value
         return ''
+
+
+def is_sequence(arg):
+    return (not hasattr(arg, "strip") and
+            hasattr(arg, "__getitem__") or
+            hasattr(arg, "__iter__"))
 
 
 class DcatMetadata(object):
