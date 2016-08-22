@@ -1,198 +1,23 @@
-from lxml import etree
 from datetime import datetime
 import time
 from collections import defaultdict
 from owslib.csw import CatalogueServiceWeb
 from owslib import util
 import owslib.iso as iso
-import logging
-from ckan.lib.munge import munge_title_to_name, munge_tag
+from ckan.lib.munge import munge_tag
+
 import ckanext.geocat.xml_loader as loader
+from ckanext.geocat.values import (
+    ArrayValue,
+    FirstInOrderValue,
+    StringValue,
+    XPathValue,
+    XPathMultiValue,
+    XPathSubValue
+)
+
+import logging
 log = logging.getLogger(__name__)
-
-
-class Value(object):
-    def __init__(self, config, **kwargs):
-        self._config = config
-        self.env = kwargs
-
-    def get_value(self, **kwargs):
-        """ Abstract method to return the value of the attribute """
-        raise NotImplementedError
-
-
-class StringValue(Value):
-    def get_value(self, **kwargs):
-        return self._config
-
-
-class XmlValue(Value):
-    def get_value(self, **kwargs):
-        self.env.update(kwargs)
-        xml = self.env['xml']
-        return etree.tostring(xml)
-
-
-class XPathValue(Value):
-    def get_element(self, xml, xpath):
-        result = loader.xpath(xml, xpath)
-        if len(result) > 0:
-            return result[0]
-        return []
-
-    def get_value(self, **kwargs):
-        self.env.update(kwargs)
-        xml = self.env['xml']
-
-        xpath = self._config
-        log.debug("XPath: %s" % (xpath))
-
-        try:
-            value = self.get_element(xml, xpath)
-        except etree.XPathError, e:
-            log.debug('XPath not found: %s, error: %s' % (xpath, str(e)))
-            value = ''
-        return value
-
-
-class XPathMultiValue(XPathValue):
-    def get_element(self, xml, xpath):
-        return loader.xpath(xml, xpath)
-
-
-class XPathSubValue(Value):
-    def get_value(self, **kwargs):
-        self.env.update(kwargs)
-        sub_attributes = self.env.get('sub_attributes', [])
-        value = []
-        for xml_elem in loader.xpath(self.env['xml'], self._config):  # noqa
-
-            sub_values = []
-            kwargs['xml'] = xml_elem
-            for sub in sub_attributes:
-                sub_values.append(sub.get_value(**kwargs))
-            value.append(sub_values)
-        return value
-
-
-class XPathTextValue(XPathValue):
-    def get_value(self, **kwargs):
-        value = super(XPathTextValue, self).get_value(**kwargs)
-        if (hasattr(value, 'text') and
-                value.text is not None and
-                value.text.strip() != ''):
-            return value.text.strip()
-        elif isinstance(value, basestring):
-            return value
-        else:
-            return ''
-
-
-class XPathMultiTextValue(XPathMultiValue):
-    def get_value(self, **kwargs):
-        self.env.update(kwargs)
-        values = super(XPathMultiTextValue, self).get_value(**kwargs)
-        return_values = []
-        for value in values:
-            if (hasattr(value, 'text') and
-                    value.text is not None and
-                    value.text.strip() != ''):
-                return_values.append(value.text.strip())
-            elif isinstance(value, basestring):
-                return_values.append(value)
-        return return_values
-
-
-class CombinedValue(Value):
-    def get_value(self, **kwargs):
-        self.env.update(kwargs)
-        value = ''
-        separator = self.env['separator'] if 'separator' in self.env else ' '
-        for attribute in self._config:
-            new_value = attribute.get_value(**kwargs)
-            if new_value is not None:
-                value = value + attribute.get_value(**kwargs) + separator
-        return value.strip(separator)
-
-
-class DateCollectionValue(Value):
-    def get_value(self, **kwargs):
-        self.env.update(kwargs)
-        separator = self.env['separator'] if 'separator' in self.env else ' '
-
-        start_dates = self._config[0].get_value(**kwargs)
-        end_dates = self._config[1].get_value(**kwargs)
-        cycles = self._config[2].get_value(**kwargs)
-
-        value = ''
-        for i, date in enumerate(start_dates):
-            value += date + ' - '
-            if i <= len(end_dates) - 1:
-                value += end_dates[i]
-            if i <= len(cycles) - 1:
-                value += ': ' + cycles[i]
-            value += separator
-
-        return value.strip(separator)
-
-
-class ArrayValue(Value):
-    def get_value(self, **kwargs):
-        self.env.update(kwargs)
-        value = []
-        for attribute in self._config:
-            new_value = attribute.get_value(**kwargs)
-            try:
-                # only dig deeper, if the new_value is a sequence (e.g. a list)
-                # otherwise simply add it to the resulting value
-                if not is_sequence(new_value):
-                    raise TypeError('%s is not a sequence' % new_value)
-                iterator = iter(new_value)
-                for inner_attribute in iterator:
-                    if isinstance(inner_attribute, Value):
-                        value.append(inner_attribute.get_value(**kwargs))
-                    else:
-                        value.append(inner_attribute)
-            except TypeError:
-                value.append(new_value)
-        return value
-
-
-class ArrayTextValue(Value):
-    def get_value(self, **kwargs):
-        self.env.update(kwargs)
-        values = self._config.get_value(**kwargs)
-        separator = self.env['separator'] if 'separator' in self.env else ' '
-        return separator.join(values)
-
-
-class ArrayDictNameValue(ArrayValue):
-    def get_value(self, **kwargs):
-        value = super(ArrayDictNameValue, self).get_value(**kwargs)
-        return self.wrap_in_name_dict(value)
-
-    def wrap_in_name_dict(self, values):
-        return [{'name': munge_title_to_name(value)} for value in values]
-
-
-class FirstInOrderValue(CombinedValue):
-    def get_value(self, **kwargs):
-        for attribute in self._config:
-            value = attribute.get_value(**kwargs)
-            if value:
-                return value
-        return ''
-
-
-def is_sequence(arg):
-    """
-    this functions checks if the given argument
-    is iterable (like a list or a tuple), but not
-    a string
-    """
-    return (not hasattr(arg, "strip") and
-            hasattr(arg, "__getitem__") or
-            hasattr(arg, "__iter__"))
 
 
 class DcatMetadata(object):
@@ -413,52 +238,52 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
 
     def get_mapping(self):
         return {
-            'identifier': XPathTextValue('//gmd:fileIdentifier/gco:CharacterString'),  # noqa
-            'title_de': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#DE"]'),  # noqa
-            'title_fr': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#FR"]'),  # noqa
-            'title_it': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#IT"]'),  # noqa
-            'title_en': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]'),  # noqa
-            'description_de': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#DE"]'),  # noqa
-            'description_fr': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#FR"]'),  # noqa
-            'description_it': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#IT"]'),  # noqa
-            'description_en': XPathTextValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]'),  # noqa
+            'identifier': XPathValue('//gmd:fileIdentifier/gco:CharacterString/text()'),  # noqa
+            'title_de': XPathValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#DE"]/text()'),  # noqa
+            'title_fr': XPathValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#FR"]/text()'),  # noqa
+            'title_it': XPathValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#IT"]/text()'),  # noqa
+            'title_en': XPathValue('//gmd:identificationInfo//gmd:citation//gmd:title//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]/text()'),  # noqa
+            'description_de': XPathValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#DE"]/text()'),  # noqa
+            'description_fr': XPathValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#FR"]/text()'),  # noqa
+            'description_it': XPathValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#IT"]/text()'),  # noqa
+            'description_en': XPathValue('//gmd:identificationInfo//gmd:abstract//gmd:textGroup/gmd:LocalisedCharacterString[@locale="#EN"]/text()'),  # noqa
             'issued': FirstInOrderValue(
                 [
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:Date'),  # noqa
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:Date'),  # noqa
-                    XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date'),  # noqa
+                    XPathValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "publication"]//gco:Date/text()'),  # noqa
+                    XPathValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "creation"]//gco:Date/text()'),  # noqa
+                    XPathValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date/text()'),  # noqa
                 ]
             ),
-            'modified': XPathTextValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date'),  # noqa
+            'modified': XPathValue('//gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:DateTime | //gmd:identificationInfo//gmd:citation//gmd:CI_Date[.//gmd:CI_DateTypeCode/@codeListValue = "revision"]//gco:Date/text()'),  # noqa
             'publishers': ArrayValue([
                 FirstInOrderValue(
                     [
-                        XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:organisationName/gco:CharacterString'),  # noqa
-                        XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:organisationName/gco:CharacterString'),  # noqa
-                        XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:organisationName/gco:CharacterString'),  # noqa
-                        XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:organisationName/gco:CharacterString'),  # noqa
-                        XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:organisationName/gco:CharacterString'),  # noqa
-                        XPathTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:organisationName/gco:CharacterString'),  # noqa
+                        XPathValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:organisationName/gco:CharacterString/text()'),  # noqa
+                        XPathValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:organisationName/gco:CharacterString/text()'),  # noqa
+                        XPathValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:organisationName/gco:CharacterString/text()'),  # noqa
+                        XPathValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:organisationName/gco:CharacterString/text()'),  # noqa
+                        XPathValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:organisationName/gco:CharacterString/text()'),  # noqa
+                        XPathValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:organisationName/gco:CharacterString'),  # noqa
                     ]
                 )
             ]),
             'contact_points': ArrayValue([
                 FirstInOrderValue(
                     [
-                        XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                        XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                        XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                        XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                        XPathTextValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
-                        XPathTextValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:address//gmd:electronicMailAddress/gco:CharacterString'),  # noqa
+                        XPathValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "publisher"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString/text()'),  # noqa
+                        XPathValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "owner"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString/text()'),  # noqa
+                        XPathValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "pointOfContact"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString/text()'),  # noqa
+                        XPathValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "distributor"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString/text()'),  # noqa
+                        XPathValue('//gmd:identificationInfo//gmd:pointOfContact[.//gmd:CI_RoleCode/@codeListValue = "custodian"]//gmd:address//gmd:electronicMailAddress/gco:CharacterString/text()'),  # noqa
+                        XPathValue('//gmd:contact//che:CHE_CI_ResponsibleParty//gmd:address//gmd:electronicMailAddress/gco:CharacterString/text()'),  # noqa
                     ]
                 )
             ]),
-            'groups': XPathMultiTextValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode'),  # noqa
+            'groups': XPathMultiValue('//gmd:identificationInfo//gmd:topicCategory/gmd:MD_TopicCategoryCode/text()'),  # noqa
             'language': FirstInOrderValue(
                 [
-                    XPathTextValue('//gmd:identificationInfo//gmd:language/gco:CharacterString'),  # noqa
-                    XPathTextValue('//che:CHE_MD_Metadata/gmd:language/gco:CharacterString'),  # noqa
+                    XPathValue('//gmd:identificationInfo//gmd:language/gco:CharacterString/text()'),  # noqa
+                    XPathValue('//che:CHE_MD_Metadata/gmd:language/gco:CharacterString/text()'),  # noqa
                 ]
             ),
             'relations': ArrayValue(
@@ -466,30 +291,30 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
                     XPathSubValue(
                         '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"])[position()>1]',  # noqa
                         sub_attributes=[
-                            XPathTextValue('.//che:LocalisedURL'),
-                            XPathTextValue('.//gmd:description/gco:CharacterString'),  # noqa
+                            XPathValue('.//che:LocalisedURL/text()'),
+                            XPathValue('.//gmd:description/gco:CharacterString/text()'),  # noqa
                         ]
                     ),
                     XPathSubValue(
                         '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal"])',  # noqa
                         sub_attributes=[
-                            XPathTextValue('.//che:LocalisedURL'),
-                            XPathTextValue('.//gmd:description/gco:CharacterString'),  # noqa
+                            XPathValue('.//che:LocalisedURL/text()'),
+                            XPathValue('.//gmd:description/gco:CharacterString/text()'),  # noqa
                         ]
                     ),
                 ]
             ),
-            'keywords_de': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#DE"]'),  # noqa
-            'keywords_fr': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#FR"]'),  # noqa
-            'keywords_it': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#IT"]'),  # noqa
-            'keywords_en': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#EN"]'),  # noqa
-            'url': XPathTextValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL'),  # noqa
-            'spatial': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:description/gco:CharacterString'),  # noqa
+            'keywords_de': XPathMultiValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#DE"]/text()'),  # noqa
+            'keywords_fr': XPathMultiValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#FR"]/text()'),  # noqa
+            'keywords_it': XPathMultiValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#IT"]/text()'),  # noqa
+            'keywords_en': XPathMultiValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#EN"]/text()'),  # noqa
+            'url': XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL/text()'),  # noqa
+            'spatial': XPathValue('//gmd:identificationInfo//gmd:extent//gmd:description/gco:CharacterString/text()'),  # noqa
             'coverage': StringValue(''),  # noqa
-            'temporals_start': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:beginPosition'),  # noqa
-            'temporals_end': XPathTextValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:endPosition'),  # noqa
-            'accrual_periodicity': XPathTextValue('//gmd:identificationInfo//gmd:MD_MaintenanceInformation/gmd:maintenanceAndUpdateFrequency/gmd:MD_MaintenanceFrequencyCode/@codeListValue'),  # noqa
-            'see_alsos': XPathMultiTextValue('//gmd:identificationInfo//gmd:aggregationInfo//gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString'),  # noqa
+            'temporals_start': XPathValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:beginPosition/text()'),  # noqa
+            'temporals_end': XPathValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:endPosition/text()'),  # noqa
+            'accrual_periodicity': XPathValue('//gmd:identificationInfo//gmd:MD_MaintenanceInformation/gmd:maintenanceAndUpdateFrequency/gmd:MD_MaintenanceFrequencyCode/@codeListValue'),  # noqa
+            'see_alsos': XPathMultiValue('//gmd:identificationInfo//gmd:aggregationInfo//gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString/text()'),  # noqa
         }
 
 
@@ -599,29 +424,29 @@ class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
 
     def get_mapping(self):
         return {
-            'name': XPathTextValue('.//gmd:name/gco:CharacterString'),
-            'protocol': XPathTextValue('.//gmd:protocol/gco:CharacterString'),
+            'name': XPathValue('.//gmd:name/gco:CharacterString/text()'),
+            'protocol': XPathValue('.//gmd:protocol/gco:CharacterString/text()'),  # noqa
             'language': StringValue(''),
             'url': FirstInOrderValue(
                 [
-                    XPathTextValue('.//gmd:linkage//che:LocalisedURL[./text()]'),  # noqa
-                    XPathTextValue('.//gmd:linkage//gmd:URL[./text()]'),
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//gmd:URL[./text()]/text()'),
                 ]
             ),
-            'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),  # noqa
-            'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),  # noqa
-            'description_it': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),  # noqa
-            'description_en': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]'),  # noqa
-            'loc_url_de': XPathTextValue('.//che:LocalisedURL[@locale = "#DE"]'),  # noqa
-            'loc_url_fr': XPathTextValue('.//che:LocalisedURL[@locale = "#FR"]'),  # noqa
-            'loc_url_it': XPathTextValue('.//che:LocalisedURL[@locale = "#IT"]'),  # noqa
-            'loc_url_en': XPathTextValue('.//che:LocalisedURL[@locale = "#EN"]'),  # noqa
+            'description_de': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]/text()'),  # noqa
+            'description_fr': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]/text()'),  # noqa
+            'description_it': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]/text()'),  # noqa
+            'description_en': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]/text()'),  # noqa
+            'loc_url_de': XPathValue('.//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
+            'loc_url_fr': XPathValue('.//che:LocalisedURL[@locale = "#FR"]/text()'),  # noqa
+            'loc_url_it': XPathValue('.//che:LocalisedURL[@locale = "#IT"]/text()'),  # noqa
+            'loc_url_en': XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
             'download_url': FirstInOrderValue(
                 [
-                    XPathTextValue('.//gmd:linkage//che:LocalisedURL[./text()]'),  # noqa
-                    XPathTextValue('.//gmd:linkage//gmd:URL[./text()]'),
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//gmd:URL[./text()]/text()'),
                 ]
             ),
             'byte_size': StringValue(''),
@@ -641,18 +466,18 @@ class GeocatDcatServiceDistributionMetdata(GeocatDcatDistributionMetadata):
 
     def get_mapping(self):
         return {
-            'name': XPathTextValue('.//gmd:name/gco:CharacterString'),  # noqa
-            'protocol': XPathTextValue('.//gmd:protocol/gco:CharacterString'),  # noqa
+            'name': XPathValue('.//gmd:name/gco:CharacterString/text()'),  # noqa
+            'protocol': XPathValue('.//gmd:protocol/gco:CharacterString/text()'),  # noqa
             'language': ArrayValue([]),  # noqa
-            'url': XPathTextValue('.//gmd:linkage//che:LocalisedURL[./text()]'),  # noqa
-            'description_de': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]'),  # noqa
-            'description_fr': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]'),  # noqa
-            'description_it': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]'),  # noqa
-            'description_en': XPathTextValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]'),  # noqa
-            'loc_url_de': XPathTextValue('.//che:LocalisedURL[@locale = "#DE"]'),  # noqa
-            'loc_url_fr': XPathTextValue('.//che:LocalisedURL[@locale = "#FR"]'),  # noqa
-            'loc_url_it': XPathTextValue('.//che:LocalisedURL[@locale = "#IT"]'),  # noqa
-            'loc_url_en': XPathTextValue('.//che:LocalisedURL[@locale = "#EN"]'),  # noqa
+            'url': XPathValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
+            'description_de': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]/text()'),  # noqa
+            'description_fr': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]/text()'),  # noqa
+            'description_it': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]/text()'),  # noqa
+            'description_en': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]/text()'),  # noqa
+            'loc_url_de': XPathValue('.//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
+            'loc_url_fr': XPathValue('.//che:LocalisedURL[@locale = "#FR"]/text()'),  # noqa
+            'loc_url_it': XPathValue('.//che:LocalisedURL[@locale = "#IT"]/text()'),  # noqa
+            'loc_url_en': XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
             'download_url': StringValue(''),  # noqa
@@ -678,12 +503,12 @@ class GeocatDcatServiceDatasetMetadata(GeocatDcatDistributionMetadata):
 
     def get_mapping(self):
         return {
-            'title_de': XPathTextValue('.//srv:operationName/gco:CharacterString'),  # noqa
-            'title_fr': XPathTextValue('.//srv:operationName/gco:CharacterString'),  # noqa
-            'title_it': XPathTextValue('.//srv:operationName/gco:CharacterString'),  # noqa
-            'title_en': XPathTextValue('.//srv:operationName/gco:CharacterString'),  # noqa
+            'title_de': XPathValue('.//srv:operationName/gco:CharacterString/text()'),  # noqa
+            'title_fr': XPathValue('.//srv:operationName/gco:CharacterString/text()'),  # noqa
+            'title_it': XPathValue('.//srv:operationName/gco:CharacterString/text()'),  # noqa
+            'title_en': XPathValue('.//srv:operationName/gco:CharacterString/text()'),  # noqa
             'language': ArrayValue([]),  # noqa
-            'url': XPathTextValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[./text()]'),  # noqa
+            'url': XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
             'description': StringValue(''),
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
