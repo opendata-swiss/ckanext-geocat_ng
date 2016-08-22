@@ -136,29 +136,6 @@ class DateCollectionValue(Value):
         return value.strip(separator)
 
 
-class MultiValue(Value):
-    def get_value(self, **kwargs):
-        self.env.update(kwargs)
-        value = ''
-        separator = self.env['separator'] if 'separator' in self.env else ' '
-        for attribute in self._config:
-            new_value = attribute.get_value(**kwargs)
-            if is_sequence(new_value):
-                try:
-                    iterator = iter(new_value)
-                    for inner_attribute in iterator:
-                        if isinstance(inner_attribute, Value):
-                            value = value + inner_attribute.get_value(**kwargs)
-                        else:
-                            value = value + inner_attribute
-                        value = value + separator
-                except TypeError:
-                    value = value + new_value + separator
-            else:
-                value = value + new_value + separator
-        return value.strip(separator)
-
-
 class ArrayValue(Value):
     def get_value(self, **kwargs):
         self.env.update(kwargs)
