@@ -471,20 +471,22 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
                 ]
             ),
             'relations': ArrayValue(
-                XPathSubValue(
-                    '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"])[position()>1]',  # noqa
-                    sub_attributes=[
-                        XPathTextValue('.//che:LocalisedURL'),
-                        XPathTextValue('.//gmd:description/gco:CharacterString'),  # noqa
-                    ]
-                ),
-                XPathSubValue(
-                    '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal"])',  # noqa
-                    sub_attributes=[
-                        XPathTextValue('.//che:LocalisedURL'),
-                        XPathTextValue('.//gmd:description/gco:CharacterString'),  # noqa
-                    ]
-                ),
+                [
+                    XPathSubValue(
+                        '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"])[position()>1]',  # noqa
+                        sub_attributes=[
+                            XPathTextValue('.//che:LocalisedURL'),
+                            XPathTextValue('.//gmd:description/gco:CharacterString'),  # noqa
+                        ]
+                    ),
+                    XPathSubValue(
+                        '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal"])',  # noqa
+                        sub_attributes=[
+                            XPathTextValue('.//che:LocalisedURL'),
+                            XPathTextValue('.//gmd:description/gco:CharacterString'),  # noqa
+                        ]
+                    ),
+                ]
             ),
             'keywords_de': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#DE"]'),  # noqa
             'keywords_fr': XPathMultiTextValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#FR"]'),  # noqa
