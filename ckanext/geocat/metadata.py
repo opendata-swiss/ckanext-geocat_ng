@@ -291,14 +291,26 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
                     XPathSubValue(
                         '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"])[position()>1]',  # noqa
                         sub_attributes=[
-                            XPathValue('.//che:LocalisedURL/text()'),
+                            FirstInOrderValue([
+                                XPathValue('.//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL[@locale = "#FR"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL[@locale = "#IT"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL/text()'),  # noqa
+                            ]),
                             XPathValue('.//gmd:description/gco:CharacterString/text()'),  # noqa
                         ]
                     ),
                     XPathSubValue(
                         '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "CHTOPO:specialised-geoportal"])',  # noqa
                         sub_attributes=[
-                            XPathValue('.//che:LocalisedURL/text()'),
+                            FirstInOrderValue([
+                                XPathValue('.//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL[@locale = "#FR"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL[@locale = "#IT"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL/text()'),  # noqa
+                            ]),
                             XPathValue('.//gmd:description/gco:CharacterString/text()'),  # noqa
                         ]
                     ),
@@ -308,7 +320,13 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'keywords_fr': XPathMultiValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#FR"]/text()'),  # noqa
             'keywords_it': XPathMultiValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#IT"]/text()'),  # noqa
             'keywords_en': XPathMultiValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#EN"]/text()'),  # noqa
-            'url': XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL/text()'),  # noqa
+            'url': FirstInOrderValue([
+                XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
+                XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL[@locale = "#FR"]/text()'),  # noqa
+                XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
+                XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL[@locale = "#IT"]/text()'),  # noqa
+                XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL/text()'),  # noqa
+            ]),
             'spatial': XPathValue('//gmd:identificationInfo//gmd:extent//gmd:description/gco:CharacterString/text()'),  # noqa
             'coverage': StringValue(''),  # noqa
             'temporals_start': XPathValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:beginPosition/text()'),  # noqa
@@ -429,6 +447,10 @@ class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
             'language': StringValue(''),
             'url': FirstInOrderValue(
                 [
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
                     XPathValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
                     XPathValue('.//gmd:linkage//gmd:URL[./text()]/text()'),
                 ]
@@ -445,6 +467,10 @@ class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
             'identifier': StringValue(''),  # noqa
             'download_url': FirstInOrderValue(
                 [
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
                     XPathValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
                     XPathValue('.//gmd:linkage//gmd:URL[./text()]/text()'),
                 ]
@@ -469,7 +495,15 @@ class GeocatDcatServiceDistributionMetdata(GeocatDcatDistributionMetadata):
             'name': XPathValue('.//gmd:name/gco:CharacterString/text()'),  # noqa
             'protocol': XPathValue('.//gmd:protocol/gco:CharacterString/text()'),  # noqa
             'language': ArrayValue([]),  # noqa
-            'url': XPathValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
+            'url': FirstInOrderValue(
+                [
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
+                ]
+            ),
             'description_de': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]/text()'),  # noqa
             'description_fr': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]/text()'),  # noqa
             'description_it': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]/text()'),  # noqa
@@ -508,7 +542,15 @@ class GeocatDcatServiceDatasetMetadata(GeocatDcatDistributionMetadata):
             'title_it': XPathValue('.//srv:operationName/gco:CharacterString/text()'),  # noqa
             'title_en': XPathValue('.//srv:operationName/gco:CharacterString/text()'),  # noqa
             'language': ArrayValue([]),  # noqa
-            'url': XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
+            'url': FirstInOrderValue(
+                [
+                    XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
+                    XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
+                    XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
+                    XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
+                ]
+            ),
             'description': StringValue(''),
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
