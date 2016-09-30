@@ -173,6 +173,7 @@ class DcatMetadata(object):
             'intelligenceMilitary': 'public-order',
             'farming': 'agriculture',
             'economy': 'national-economy',
+            'energy': 'energy',
         }
         groups = [{'name': 'geography'}]
         if 'groups' in pkg_dict:
