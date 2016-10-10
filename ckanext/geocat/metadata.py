@@ -105,6 +105,10 @@ class DcatMetadata(object):
         if not cleaned_dataset['issued']:
             cleaned_dataset['issued'] = int(time.time())
 
+        # clean see_alsos
+        if not cleaned_dataset['see_alsos']:
+            cleaned_dataset['see_alsos'] = []
+
         clean_dict = dict(cleaned_dataset)
         log.debug("Cleaned dataset: %s" % clean_dict)
 
@@ -230,7 +234,7 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'ita': 'it',
         }
         try:
-            language = lang_mapping[dataset['language']]
+            language = [lang_mapping[dataset['language']]]
         except KeyError:
             language = []
         dataset['language'] = language
