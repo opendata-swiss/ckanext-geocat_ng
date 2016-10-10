@@ -12,4 +12,4 @@ trap "cleanup" EXIT
 flake8 --statistics --show-source ckanext
 
 # run tests
-nosetests --verbose
+nosetests --verbose ckanext/geocat
