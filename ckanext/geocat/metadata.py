@@ -174,6 +174,7 @@ class DcatMetadata(object):
             'farming': 'agriculture',
             'economy': 'national-economy',
             'utilitiesCommunication_Energy': 'energy',
+            'society': 'culture',
         }
         groups = [{'name': 'geography'}]
         if 'groups' in pkg_dict:
