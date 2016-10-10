@@ -80,6 +80,7 @@
       <che:organisationAcronym xsi:type="gmd:PT_FreeText_PropertyType">
         <gco:CharacterString>BAFU</gco:CharacterString>
         <gmd:PT_FreeText>
+          <gmd:textGroup>
             <gmd:LocalisedCharacterString locale="#DE">BAFU</gmd:LocalisedCharacterString>
           </gmd:textGroup>
         </gmd:PT_FreeText>
@@ -99,6 +100,7 @@
       <gmd:positionName xsi:type="gmd:PT_FreeText_PropertyType">
         <gco:CharacterString>Fachstelle Geo- und Umweltdatenmanagement</gco:CharacterString>
         <gmd:PT_FreeText>
+          <gmd:textGroup>
             <gmd:LocalisedCharacterString locale="#DE">Fachstelle Geo- und Umweltdatenmanagement</gmd:LocalisedCharacterString>
           </gmd:textGroup>
         </gmd:PT_FreeText>
@@ -135,6 +137,7 @@
                   <che:URLGroup>
                     <che:LocalisedURL locale="#DE">http://www.bafu.admin.ch/sektion-it-s</che:LocalisedURL>
                   </che:URLGroup>
+                </che:PT_FreeURL>
               </gmd:linkage>
               <gmd:protocol>
                 <gco:CharacterString>text/html</gco:CharacterString>
@@ -303,6 +306,7 @@
           <gmd:positionName xsi:type="gmd:PT_FreeText_PropertyType">
             <gco:CharacterString>Abteilung Lärm und NIS</gco:CharacterString>
             <gmd:PT_FreeText>
+              <gmd:textGroup>
                 <gmd:LocalisedCharacterString locale="#DE">Abteilung Lärm und NIS</gmd:LocalisedCharacterString>
               </gmd:textGroup>
             </gmd:PT_FreeText>

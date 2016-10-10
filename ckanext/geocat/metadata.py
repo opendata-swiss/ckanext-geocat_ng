@@ -102,7 +102,7 @@ class DcatMetadata(object):
             cleaned_dataset['issued'] = int(time.time())
 
         # clean see_alsos
-        if not cleaned_dataset['see_alsos']:
+        if 'see_alsos' in cleaned_dataset and not cleaned_dataset['see_alsos']:
             cleaned_dataset['see_alsos'] = []
 
         clean_dict = dict(cleaned_dataset)
@@ -194,6 +194,8 @@ class DcatMetadata(object):
         return groups
 
     def _clean_accrual_periodicity(self, pkg_dict):
+        if 'accrual_periodicity' not in pkg_dict:
+            return ''
         frequency_mapping = {
             'continual': 'http://purl.org/cld/freq/continuous',
             'daily': 'http://purl.org/cld/freq/daily',

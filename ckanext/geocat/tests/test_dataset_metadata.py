@@ -189,3 +189,71 @@ class TestGeocatDcatDatasetMetadata(unittest.TestCase):
         # see alsos
         self.assertTrue(hasattr(dataset['see_alsos'], '__iter__'))
         self.assertEquals(0, len(dataset['see_alsos']))
+
+    def test_fields_values_de_only(self):
+        dcat = metadata.GeocatDcatDatasetMetadata()
+        dataset = self._load_xml(dcat, 'only_de.xml')
+
+        # id
+        self.assertEquals('', dataset.get('id'))
+
+        # identifier
+        self.assertEquals('93814e81-2466-4690-b54d-c1d958f1c3b8', dataset.get('identifier'))
+
+        # title
+        self.assertEquals(u'L\xe4rmbelastung durch Eisenbahnverkehr Nacht', dataset['title']['de'])
+        self.assertEquals('', dataset['title']['fr'])
+        self.assertEquals('', dataset['title']['it'])
+        self.assertEquals('', dataset['title']['en'])
+
+        # description
+        self.assertIn(u'Die Karte zeigt, welcher L\xe4rmbelastung', dataset['description']['de'])
+        self.assertIn('', dataset['description']['fr'])
+        self.assertIn('', dataset['description']['it'])
+        self.assertIn('', dataset['description']['en'])
+
+        # language
+        self.assertEquals(set(['de']), set(dataset.get('language')))
+
+        # keywords
+        keywords = {
+            'de': [
+                'larmbekampfung',
+                'larmbelastung',
+                'larmpegel',
+                'larmimmission',
+                'verkehrslarm',
+                'larmwirkung',
+                'gesundheit-und-sicherheit',
+                'e-geoch-geoportal'
+            ],
+            'fr': [],
+            'it': [],
+            'en': [],
+        }
+        for lang in ['de', 'fr', 'it', 'en']:
+            self.assertEquals(set(keywords[lang]), set(dataset['keywords'][lang]))
+
+    def test_date_revision(self):
+        dcat = metadata.GeocatDcatDatasetMetadata()
+        dataset = self._load_xml(dcat, 'revision_date.xml')
+
+        revision_string = '2011-12-31'
+        r = datetime.strptime(revision_string, '%Y-%m-%d')
+        self.assertEquals(int(time.mktime(r.timetuple())), dataset['issued'])
+        self.assertEquals(int(time.mktime(r.timetuple())), dataset['modified'])
+        self.assertEquals(dataset['issued'], dataset['modified'])
+
+    def test_date_publication(self):
+        dcat = metadata.GeocatDcatDatasetMetadata()
+        dataset = self._load_xml(dcat, 'publication_date.xml')
+
+        publication_string = '2010-12-30'
+        p = datetime.strptime(publication_string, '%Y-%m-%d')
+        self.assertEquals(int(time.mktime(p.timetuple())), dataset['issued'])
+
+        revision_string = '2011-12-31'
+        r = datetime.strptime(revision_string, '%Y-%m-%d')
+        self.assertEquals(int(time.mktime(r.timetuple())), dataset['modified'])
+
+        self.assertNotEquals(dataset['issued'], dataset['modified'])
