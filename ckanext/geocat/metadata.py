@@ -64,11 +64,7 @@ class DcatMetadata(object):
         cleaned_dataset = defaultdict(dict)
 
         # create language dicts from the suffixed keys
-        for k in dataset:
-            if k.endswith(('_de', '_fr', '_it', '_en')):
-                cleaned_dataset[k[:-3]][k[-2:]] = dataset[k]
-            else:
-                cleaned_dataset[k] = dataset[k]
+        cleaned_dataset = self._clean_suffixed_lang(dataset, cleaned_dataset)
 
         clean_values = {}
         for k in ('issued', 'modified'):
@@ -113,6 +109,14 @@ class DcatMetadata(object):
         log.debug("Cleaned dataset: %s" % clean_dict)
 
         return clean_dict
+
+    def _clean_suffixed_lang(self, dataset, cleaned_dataset):
+        for k in dataset:
+            if k.endswith(('_de', '_fr', '_it', '_en')):
+                cleaned_dataset[k[:-3]][k[-2:]] = dataset[k]
+            else:
+                cleaned_dataset[k] = dataset[k]
+        return cleaned_dataset
 
     def _clean_datetime(self, datetime_value):
         try:
