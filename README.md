@@ -59,3 +59,9 @@ do::
 To run the code checks use:
 
     flake8
+
+# Run the tests
+
+To run the tests use the following command
+
+    nosetests
