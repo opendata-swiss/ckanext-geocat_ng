@@ -64,11 +64,7 @@ class DcatMetadata(object):
         cleaned_dataset = defaultdict(dict)
 
         # create language dicts from the suffixed keys
-        for k in dataset:
-            if k.endswith(('_de', '_fr', '_it', '_en')):
-                cleaned_dataset[k[:-3]][k[-2:]] = dataset[k]
-            else:
-                cleaned_dataset[k] = dataset[k]
+        cleaned_dataset = self._clean_suffixed_lang(dataset, cleaned_dataset)
 
         clean_values = {}
         for k in ('issued', 'modified'):
@@ -105,10 +101,22 @@ class DcatMetadata(object):
         if not cleaned_dataset['issued']:
             cleaned_dataset['issued'] = int(time.time())
 
+        # clean see_alsos
+        if 'see_alsos' in cleaned_dataset and not cleaned_dataset['see_alsos']:
+            cleaned_dataset['see_alsos'] = []
+
         clean_dict = dict(cleaned_dataset)
         log.debug("Cleaned dataset: %s" % clean_dict)
 
         return clean_dict
+
+    def _clean_suffixed_lang(self, dataset, cleaned_dataset):
+        for k in dataset:
+            if k.endswith(('_de', '_fr', '_it', '_en')):
+                cleaned_dataset[k[:-3]][k[-2:]] = dataset[k]
+            else:
+                cleaned_dataset[k] = dataset[k]
+        return cleaned_dataset
 
     def _clean_datetime(self, datetime_value):
         try:
@@ -187,6 +195,8 @@ class DcatMetadata(object):
         return groups
 
     def _clean_accrual_periodicity(self, pkg_dict):
+        if 'accrual_periodicity' not in pkg_dict:
+            return ''
         frequency_mapping = {
             'continual': 'http://purl.org/cld/freq/continuous',
             'daily': 'http://purl.org/cld/freq/daily',
@@ -231,7 +241,7 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'ita': 'it',
         }
         try:
-            language = lang_mapping[dataset['language']]
+            language = [lang_mapping[dataset['language']]]
         except KeyError:
             language = []
         dataset['language'] = language
