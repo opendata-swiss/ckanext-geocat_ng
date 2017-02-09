@@ -105,6 +105,7 @@ class GeocatHarvester(HarvesterBase):
             return False
 
         csw_url = harvest_object.source.url.rstrip('/')
+        csw = None
         try:
             csw = md.CswHelper(url=csw_url)
             xml = csw.get_by_id(harvest_object.guid)
@@ -113,10 +114,19 @@ class GeocatHarvester(HarvesterBase):
             log.debug('successfully processed ' + harvest_object.guid)
             return True
         except Exception, e:
+            response = '-'
+            if csw and hasattr(csw.catalog, 'response'):
+                response = csw.catalog.response
+
             self._save_object_error(
                 (
-                    'Unable to get content for package: %s: %r / %s'
-                    % (harvest_object.guid, e, traceback.format_exc())
+                    'Unable to get content for package: %s: %r: %r / %s' %
+                    (
+                        harvest_object.guid,
+                        e,
+                        response,
+                        traceback.format_exc()
+                    )
                 ),
                 harvest_object
             )
