@@ -360,16 +360,24 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
 
         # add media_type to dataset metadata
         dataset_meta['media_type'] = ''
-        try:
-            service_media_type = loader.xpath(xml, '//gmd:identificationInfo//srv:serviceType/gco:LocalName/text()')  # noqa
-            dist_media_type = loader.xpath(xml, '//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()')  # noqa
+        service_media_type = loader.xpath(xml, '//gmd:identificationInfo//srv:serviceType/gco:LocalName/text()')  # noqa
+        dist_media_type = loader.xpath(xml, '//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()')  # noqa
 
-            if service_media_type:
+        if service_media_type:
+            try:
                 dataset_meta['media_type'] = service_media_type[0]
-            if dist_media_type:
+            except IndexError:
+                pass
+
+        if dist_media_type:
+            try:
                 dataset_meta['media_type'] = dist_media_type[0]
-        except IndexError:
-            pass
+            except IndexError:
+                pass
+
+        # if the media type is set to 'N/A', consider this an empty value
+        if dataset_meta['media_type'].upper() == 'N/A':
+            dataset_meta['media_type'] = ''
 
         distributions = []
 
@@ -433,6 +441,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         dist['modified'] = dataset_meta['modified']
         dist['format'] = ''
         dist['media_type'] = dataset_meta.get('media_type', '')
+
         return dist
 
 
