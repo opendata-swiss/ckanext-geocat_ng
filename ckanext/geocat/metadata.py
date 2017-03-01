@@ -355,6 +355,30 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         self.csw = CswHelper('http://www.geocat.ch/geonetwork/srv/eng/csw')
 
     def get_metadata(self, xml):
+        dataset_meta = self._get_dataset_metadata(xml)
+        distributions = []
+
+        # handle downloads
+        download_dist = GeocatDcatDownloadDistributionMetdata()
+        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]'):  # noqa
+            dist = download_dist.get_metadata(dist_xml, dataset_meta)
+            distributions.append(dist)
+
+        # handle services
+        service_dist = GeocatDcatServiceDistributionMetdata()
+        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
+            dist = service_dist.get_metadata(dist_xml, dataset_meta)
+            distributions.append(dist)
+
+        # handle service datasets
+        service_dataset = GeocatDcatServiceDatasetMetadata()
+        for dist_xml in loader.xpath(xml, '//gmd:identificationInfo//srv:containsOperations/srv:SV_OperationMetadata[.//srv:operationName//gco:CharacterString/text()]'):  # noqa
+            dist = service_dataset.get_metadata(dist_xml, dataset_meta)
+            distributions.append(dist)
+
+        return distributions
+
+    def _get_dataset_metadata(self, xml):
         dataset = GeocatDcatDatasetMetadata()
         dataset_meta = dataset.load(xml)
 
@@ -379,27 +403,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         if dataset_meta['media_type'].upper() == 'N/A':
             dataset_meta['media_type'] = ''
 
-        distributions = []
-
-        # handle downloads
-        download_dist = GeocatDcatDownloadDistributionMetdata()
-        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]'):  # noqa
-            dist = download_dist.get_metadata(dist_xml, dataset_meta)
-            distributions.append(dist)
-
-        # handle services
-        service_dist = GeocatDcatServiceDistributionMetdata()
-        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
-            dist = service_dist.get_metadata(dist_xml, dataset_meta)
-            distributions.append(dist)
-
-        # handle service datasets
-        service_dataset = GeocatDcatServiceDatasetMetadata()
-        for dist_xml in loader.xpath(xml, '//gmd:identificationInfo//srv:containsOperations/srv:SV_OperationMetadata[.//srv:operationName//gco:CharacterString/text()]'):  # noqa
-            dist = service_dataset.get_metadata(dist_xml, dataset_meta)
-            distributions.append(dist)
-
-        return distributions
+        return dataset_meta
 
     def _handle_single_distribution(self, dist_xml, dataset_meta):
         dist = self.load(dist_xml)
