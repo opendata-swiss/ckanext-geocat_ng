@@ -355,22 +355,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         self.csw = CswHelper('http://www.geocat.ch/geonetwork/srv/eng/csw')
 
     def get_metadata(self, xml):
-        dataset = GeocatDcatDatasetMetadata()
-        dataset_meta = dataset.load(xml)
-
-        # add media_type to dataset metadata
-        dataset_meta['media_type'] = ''
-        try:
-            service_media_type = loader.xpath(xml, '//gmd:identificationInfo//srv:serviceType/gco:LocalName/text()')  # noqa
-            dist_media_type = loader.xpath(xml, '//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()')  # noqa
-
-            if service_media_type:
-                dataset_meta['media_type'] = service_media_type[0]
-            if dist_media_type:
-                dataset_meta['media_type'] = dist_media_type[0]
-        except IndexError:
-            pass
-
+        dataset_meta = self._get_dataset_metadata(xml)
         distributions = []
 
         # handle downloads
@@ -392,6 +377,33 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
             distributions.append(dist)
 
         return distributions
+
+    def _get_dataset_metadata(self, xml):
+        dataset = GeocatDcatDatasetMetadata()
+        dataset_meta = dataset.load(xml)
+
+        # add media_type to dataset metadata
+        dataset_meta['media_type'] = ''
+        service_media_type = loader.xpath(xml, '//gmd:identificationInfo//srv:serviceType/gco:LocalName/text()')  # noqa
+        dist_media_type = loader.xpath(xml, '//gmd:distributionInfo//gmd:distributionFormat//gmd:name//gco:CharacterString/text()')  # noqa
+
+        if service_media_type:
+            try:
+                dataset_meta['media_type'] = service_media_type[0]
+            except IndexError:
+                pass
+
+        if dist_media_type:
+            try:
+                dataset_meta['media_type'] = dist_media_type[0]
+            except IndexError:
+                pass
+
+        # if the media type is set to 'N/A', consider this an empty value
+        if dataset_meta['media_type'].upper() == 'N/A':
+            dataset_meta['media_type'] = ''
+
+        return dataset_meta
 
     def _handle_single_distribution(self, dist_xml, dataset_meta):
         dist = self.load(dist_xml)
@@ -433,6 +445,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         dist['modified'] = dataset_meta['modified']
         dist['format'] = ''
         dist['media_type'] = dataset_meta.get('media_type', '')
+
         return dist
 
 
