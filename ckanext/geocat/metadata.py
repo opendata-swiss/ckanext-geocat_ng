@@ -1,6 +1,7 @@
 from datetime import datetime
 import time
 from collections import defaultdict
+from urlparse import urlparse
 from owslib.csw import CatalogueServiceWeb
 from owslib import util
 import owslib.iso as iso
@@ -160,11 +161,25 @@ class DcatMetadata(object):
             for relation in pkg_dict['relations']:
                 try:
                     label = relation[1] if relation[1] else relation[0]
-                    relations.append({'url': relation[0], 'label': label})
+                    relation_dict = {'url': relation[0], 'label': label}
                 except IndexError:
-                    relations.append({'url': relation, 'label': relation})
+                    relation_dict = {'url': relation, 'label': relation}
+                # check if the URL is valid
+                try:
+                    self._validate_url(relation_dict['url'])
+                    relations.append(relation_dict)
+                except ValueError:
+                    log.debug("Invalid relation URL, skipping relation...")
+                    continue
+
 
         return relations
+
+    def _validate_url(self, url):
+        result = urlparse(url)
+        if not result.scheme or not result.netloc or result.netloc == '-':
+            raise ValueError("The provided URL '%s' is invalid (missing scheme or netloc)" % url)
+        return True
 
     def _clean_keywords(self, pkg_dict):
         clean_keywords = {}
@@ -362,19 +377,35 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         download_dist = GeocatDcatDownloadDistributionMetdata()
         for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]'):  # noqa
             dist = download_dist.get_metadata(dist_xml, dataset_meta)
-            distributions.append(dist)
+            try:
+                self._validate_url(dist.get('download_url'))
+                self._validate_url(dist.get('url'))
+                distributions.append(dist)
+            except ValueError:
+                log.debug('URL in resource was invalid, skipping resource...')
+                continue
 
         # handle services
         service_dist = GeocatDcatServiceDistributionMetdata()
         for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
             dist = service_dist.get_metadata(dist_xml, dataset_meta)
-            distributions.append(dist)
+            try:
+                self._validate_url(dist.get('url'))
+                distributions.append(dist)
+            except ValueError:
+                log.debug('URL in resource was invalid, skipping resource...')
+                continue
 
         # handle service datasets
         service_dataset = GeocatDcatServiceDatasetMetadata()
         for dist_xml in loader.xpath(xml, '//gmd:identificationInfo//srv:containsOperations/srv:SV_OperationMetadata[.//srv:operationName//gco:CharacterString/text()]'):  # noqa
             dist = service_dataset.get_metadata(dist_xml, dataset_meta)
-            distributions.append(dist)
+            try:
+                self._validate_url(dist.get('url'))
+                distributions.append(dist)
+            except ValueError:
+                log.debug('URL in resource was invalid, skipping resource...')
+                continue
 
         return distributions
 
