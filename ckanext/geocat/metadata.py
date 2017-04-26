@@ -172,13 +172,12 @@ class DcatMetadata(object):
                     log.debug("Invalid relation URL, skipping relation...")
                     continue
 
-
         return relations
 
     def _validate_url(self, url):
         result = urlparse(url)
         if not result.scheme or not result.netloc or result.netloc == '-':
-            raise ValueError("The provided URL '%s' is invalid (missing scheme or netloc)" % url)
+            raise ValueError("The provided URL '%s' is invalid (missing scheme or netloc)" % url)  # noqa
         return True
 
     def _clean_keywords(self, pkg_dict):
@@ -382,7 +381,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
                 self._validate_url(dist.get('url'))
                 distributions.append(dist)
             except ValueError:
-                log.debug('URL in resource was invalid, skipping resource...')
+                log.debug("URL in resource invalid ('%s' or '%s'), skipping resource..." % (dist.get('download_url'), dist.get('url')))  # noqa
                 continue
 
         # handle services
@@ -393,7 +392,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
                 self._validate_url(dist.get('url'))
                 distributions.append(dist)
             except ValueError:
-                log.debug('URL in resource was invalid, skipping resource...')
+                log.debug("URL in resource invalid ('%s'), skipping resource..." % dist.get('url'))  # noqa
                 continue
 
         # handle service datasets
@@ -404,7 +403,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
                 self._validate_url(dist.get('url'))
                 distributions.append(dist)
             except ValueError:
-                log.debug('URL in resource was invalid, skipping resource...')
+                log.debug("URL in resource invalid ('%s'), skipping resource..." % dist.get('url'))  # noqa
                 continue
 
         return distributions
