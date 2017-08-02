@@ -357,7 +357,7 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'coverage': StringValue(''),  # noqa
             'temporals_start': XPathValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:beginPosition/text()'),  # noqa
             'temporals_end': XPathValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:endPosition/text()'),  # noqa
-            'accrual_periodicity': XPathValue('//gmd:identificationInfo//gmd:MD_MaintenanceInformation/gmd:maintenanceAndUpdateFrequency/gmd:MD_MaintenanceFrequencyCode/@codeListValue'),  # noqa
+            'accrual_periodicity': XPathValue('//gmd:identificationInfo//che:CHE_MD_MaintenanceInformation/gmd:maintenanceAndUpdateFrequency/gmd:MD_MaintenanceFrequencyCode/@codeListValue'),  # noqa
             'see_alsos': XPathMultiValue('//gmd:identificationInfo//gmd:aggregationInfo//gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString/text()'),  # noqa
         }
 
