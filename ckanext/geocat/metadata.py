@@ -458,6 +458,25 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
             }
         else:
             dist['title'] = dict(dist['description'])
+
+        # map rights
+        rights = {
+            'Freie Nutzung': 'NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired',  # noqa
+            'Utilisation libre': 'NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired',  # noqa
+
+            'Freie Nutzung. Quellenangabe ist Pflicht.': 'NonCommercialAllowed-CommercialAllowed-ReferenceRequired',  # noqa
+            'Utilisation libre. Obligation d’indiquer la source.': 'NonCommercialAllowed-CommercialAllowed-ReferenceRequired',  # noqa
+
+            'Freie Nutzung. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulässig.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceNotRequired',  # noqa
+            'Utilisation libre. Utilisation à des fins commerciales uniquement avec l’autorisation du fournisseur des données.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceNotRequired',  # noqa
+
+            'Freie Nutzung. Quellenangabe ist Pflicht. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulässig.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceRequired',  # noqa
+            'Utilisation libre. Obligation d’indiquer la source. Utilisation commerciale uniquement avec l’autorisation du fournisseur des données.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceRequired' # noqa
+        }
+        if dist['rights'] in rights:
+            dist['rights'] = rights[dist['rights']]
+        else:
+            dist['rights'] = ''
         del dist['name']
         del dist['protocol']
 
@@ -519,6 +538,12 @@ class GeocatDcatDownloadDistributionMetadata(GeocatDcatDistributionMetadata):
             'loc_url_en': XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
+            'rights': FirstInOrderValue(
+                [
+                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalicedCharacterString[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalicedCharacterString[@locale = "#FR" and ./text()]/text()'),  # noqa
+                ]
+            ),
             'byte_size': StringValue(''),
             'media_type': StringValue(''),
             'format': StringValue(''),
@@ -590,6 +615,12 @@ class GeocatDcatServiceDistributionMetadata(GeocatDcatDistributionMetadata):
             'loc_url_en': XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
+            'rights': FirstInOrderValue(
+                [
+                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalicedCharacterString[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalicedCharacterString[@locale = "#FR" and ./text()]/text()'),  # noqa
+                ]
+            ),
             'byte_size': StringValue(''),  # noqa
             'media_type': StringValue(''),  # noqa
             'format': StringValue(''),  # noqa

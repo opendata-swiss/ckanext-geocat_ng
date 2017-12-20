@@ -165,10 +165,11 @@ class GeocatHarvester(HarvesterBase):
             dist_list = dist_metadata.get_metadata(xml_elem)
 
             for dist in dist_list:
-                dist['rights'] = self.config.get(
-                    'rights',
-                    'NonCommercialNotAllowed-CommercialNotAllowed-ReferenceRequired'  # noqa
-                )
+                if not dist['rights']:
+                    dist['rights'] = self.config.get(
+                        'rights',
+                        'NonCommercialNotAllowed-CommercialNotAllowed-ReferenceRequired'  # noqa
+                    )
 
             pkg_dict['identifier'] = (
                 '%s@%s'
