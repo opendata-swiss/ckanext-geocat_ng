@@ -1015,7 +1015,16 @@
               <gmd:linkage xsi:type="che:PT_FreeURL_PropertyType">
                 <che:PT_FreeURL>
                   <che:URLGroup>
-                    <che:LocalisedURL locale="#DE">http://wms.geo.admin.ch/?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities&amp;lang=de</che:LocalisedURL>
+                    <che:LocalisedURL locale="#DE">http://wms.geo.admin.ch/?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities&amp;lang=de/1</che:LocalisedURL>
+                  </che:URLGroup>
+                  <che:URLGroup>
+                    <che:LocalisedURL locale="#DE">http://wms.geo.admin.ch/?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities&amp;lang=de/2</che:LocalisedURL>
+                  </che:URLGroup>
+                  <che:URLGroup>
+                    <che:LocalisedURL locale="#FR">http://wms.geo.admin.ch/?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities&amp;lang=fr/1</che:LocalisedURL>
+                  </che:URLGroup>
+                  <che:URLGroup>
+                    <che:LocalisedURL locale="#FR">http://wms.geo.admin.ch/?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities&amp;lang=fr/2</che:LocalisedURL>
                   </che:URLGroup>
                 </che:PT_FreeURL>
               </gmd:linkage>
@@ -1152,7 +1161,10 @@
               <gmd:linkage xsi:type="che:PT_FreeURL_PropertyType">
                 <che:PT_FreeURL>
                   <che:URLGroup>
-                    <che:LocalisedURL locale="#DE">http://wmts.geo.admin.ch</che:LocalisedURL>
+                    <che:LocalisedURL locale="#DE">http://wmts.geo.admin.ch/1</che:LocalisedURL>
+                  </che:URLGroup>
+                  <che:URLGroup>
+                    <che:LocalisedURL locale="#DE">http://wmts.geo.admin.ch/2</che:LocalisedURL>
                   </che:URLGroup>
                 </che:PT_FreeURL>
               </gmd:linkage>

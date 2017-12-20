@@ -35,7 +35,7 @@ class TestGeocatDcatDistributionMetadata(unittest.TestCase):
         dcat = metadata.GeocatDcatDistributionMetadata()
         distributions = self._load_xml(dcat, 'complete.xml')
 
-        self.assertEquals(4, len(distributions))
+        self.assertEquals(6, len(distributions))
 
         fields = [
             'identifier',

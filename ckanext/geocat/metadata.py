@@ -373,40 +373,30 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         distributions = []
 
         # handle downloads
-        download_dist = GeocatDcatDownloadDistributionMetdata()
-        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]'):  # noqa
-            dist = download_dist.get_metadata(dist_xml, dataset_meta)
-            try:
-                self._validate_url(dist.get('download_url'))
-                self._validate_url(dist.get('url'))
-                distributions.append(dist)
-            except ValueError:
-                log.debug("URL in resource invalid ('%s' or '%s'), skipping resource..." % (dist.get('download_url'), dist.get('url')))  # noqa
-                continue
+        download_dist = GeocatDcatDownloadDistributionMetadata()
+        download_dists = download_dist.get_metadata(xml, dataset_meta)
+        distributions.extend(download_dists)
 
         # handle services
-        service_dist = GeocatDcatServiceDistributionMetdata()
-        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
-            dist = service_dist.get_metadata(dist_xml, dataset_meta)
-            try:
-                self._validate_url(dist.get('url'))
-                distributions.append(dist)
-            except ValueError:
-                log.debug("URL in resource invalid ('%s'), skipping resource..." % dist.get('url'))  # noqa
-                continue
+        service_dist = GeocatDcatServiceDistributionMetadata()
+        service_dists = service_dist.get_metadata(xml, dataset_meta)
+        distributions.extend(service_dists)
 
         # handle service datasets
         service_dataset = GeocatDcatServiceDatasetMetadata()
-        for dist_xml in loader.xpath(xml, '//gmd:identificationInfo//srv:containsOperations/srv:SV_OperationMetadata[.//srv:operationName//gco:CharacterString/text()]'):  # noqa
-            dist = service_dataset.get_metadata(dist_xml, dataset_meta)
-            try:
-                self._validate_url(dist.get('url'))
-                distributions.append(dist)
-            except ValueError:
-                log.debug("URL in resource invalid ('%s'), skipping resource..." % dist.get('url'))  # noqa
-                continue
+        service_datasets = service_dataset.get_metadata(xml, dataset_meta)
+        distributions.extend(service_datasets)
 
         return distributions
+
+    # Use the original dist as template to create a new dist.
+    # and delete the url_list on the copy as we don't need it afterwards.
+    def _create_dist_copy(self, orig_dist, access_url):
+        dist = orig_dist.copy()
+        dist['url'] = access_url
+
+        del dist['url_list']
+        return dist
 
     def _get_dataset_metadata(self, xml):
         dataset = GeocatDcatDatasetMetadata()
@@ -479,11 +469,69 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
         return dist
 
 
-class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
+class GeocatDcatDownloadDistributionMetadata(GeocatDcatDistributionMetadata):
     """ Provides access to the Geocat metadata """
 
     def get_metadata(self, dist_xml, dataset_meta):
-        dist = self._handle_single_distribution(dist_xml, dataset_meta)
+        download_distributions = []
+        for dist_xml in loader.xpath(dist_xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]'):  # noqa
+            orig_dist = self._handle_single_distribution(
+                dist_xml,
+                dataset_meta
+            )
+            try:
+                for url in orig_dist['url_list']:
+                    dist = self._create_dist_copy(orig_dist, url)
+                    self._validate_url(dist.get('download_url'))
+                    self._validate_url(dist.get('url'))
+                    download_distributions.append(dist)
+            except (ValueError, KeyError):
+                log.debug("URL in resource invalid ('%s' or '%s'), skipping resource..." % (dist.get('download_url'), dist.get('url')))  # noqa
+                continue
+        return download_distributions
+
+    def get_mapping(self):
+        return {
+            'name': XPathValue('.//gmd:name/gco:CharacterString/text()'),
+            'protocol': XPathValue('.//gmd:protocol/gco:CharacterString/text()'),  # noqa
+            'language': StringValue(''),  # noqa
+            # 'download_url' and 'url' are set to empty, their
+            # values will be determined and set later from 'url_list'
+            'download_url': StringValue(''),  # noqa
+            'url': StringValue(''),  # noqa
+            'url_list': FirstInOrderValue(
+                [
+                    XPathMultiValue('.//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
+                    XPathMultiValue('.//gmd:linkage//gmd:URL[./text()]/text()'),   # noqa
+                ]
+            ),
+            'description_de': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]/text()'),  # noqa
+            'description_fr': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]/text()'),  # noqa
+            'description_it': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]/text()'),  # noqa
+            'description_en': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]/text()'),  # noqa
+            'loc_url_de': XPathValue('.//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
+            'loc_url_fr': XPathValue('.//che:LocalisedURL[@locale = "#FR"]/text()'),  # noqa
+            'loc_url_it': XPathValue('.//che:LocalisedURL[@locale = "#IT"]/text()'),  # noqa
+            'loc_url_en': XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
+            'license': StringValue(''),  # noqa
+            'identifier': StringValue(''),  # noqa
+            'byte_size': StringValue(''),
+            'media_type': StringValue(''),
+            'format': StringValue(''),
+            'coverage': StringValue(''),
+        }
+
+    # Use the original dist as template to create a new dist.
+    # Also set the url to the access_url (and the download_url if it exists)
+    # and delete the url_list on the copy as we don't need it afterwards.
+    def _create_dist_copy(self, orig_dist, access_url):
+        dist = super(GeocatDcatDownloadDistributionMetadata, self)._create_dist_copy(orig_dist, access_url)  # noqa
+
+        dist['download_url'] = access_url
 
         # if a download URL ends with zip,
         # assume the media type is application/zip, no matter what geocat says
@@ -495,70 +543,43 @@ class GeocatDcatDownloadDistributionMetdata(GeocatDcatDistributionMetadata):
 
         return dist
 
-    def get_mapping(self):
-        return {
-            'name': XPathValue('.//gmd:name/gco:CharacterString/text()'),
-            'protocol': XPathValue('.//gmd:protocol/gco:CharacterString/text()'),  # noqa
-            'language': StringValue(''),
-            'url': FirstInOrderValue(
-                [
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//gmd:URL[./text()]/text()'),
-                ]
-            ),
-            'description_de': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]/text()'),  # noqa
-            'description_fr': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]/text()'),  # noqa
-            'description_it': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]/text()'),  # noqa
-            'description_en': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#EN"]/text()'),  # noqa
-            'loc_url_de': XPathValue('.//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
-            'loc_url_fr': XPathValue('.//che:LocalisedURL[@locale = "#FR"]/text()'),  # noqa
-            'loc_url_it': XPathValue('.//che:LocalisedURL[@locale = "#IT"]/text()'),  # noqa
-            'loc_url_en': XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
-            'license': StringValue(''),  # noqa
-            'identifier': StringValue(''),  # noqa
-            'download_url': FirstInOrderValue(
-                [
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//gmd:URL[./text()]/text()'),
-                ]
-            ),
-            'byte_size': StringValue(''),
-            'media_type': StringValue(''),
-            'format': StringValue(''),
-            'coverage': StringValue(''),
-        }
 
-
-class GeocatDcatServiceDistributionMetdata(GeocatDcatDistributionMetadata):
+class GeocatDcatServiceDistributionMetadata(GeocatDcatDistributionMetadata):
     """ Provides access to the Geocat metadata """
 
     def get_metadata(self, dist_xml, dataset_meta):
-        dist = self._handle_single_distribution(dist_xml, dataset_meta)
-        dist['media_type'] = ''
-        return dist
+        service_distributions = []
+        for dist_xml in loader.xpath(dist_xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
+            orig_dist = self._handle_single_distribution(
+                dist_xml,
+                dataset_meta
+            )
+            orig_dist['media_type'] = ''
+            try:
+                for url in orig_dist['url_list']:
+                    dist = self._create_dist_copy(orig_dist, url)
+                    self._validate_url(dist.get('url'))
+                    service_distributions.append(dist)
+            except (ValueError, KeyError):
+                log.debug("URL in resource invalid ('%s'), skipping resource..." % dist.get('url'))  # noqa
+                continue
+        return service_distributions
 
     def get_mapping(self):
         return {
             'name': XPathValue('.//gmd:name/gco:CharacterString/text()'),  # noqa
             'protocol': XPathValue('.//gmd:protocol/gco:CharacterString/text()'),  # noqa
             'language': ArrayValue([]),  # noqa
-            'url': FirstInOrderValue(
+            'url_list': FirstInOrderValue(
                 [
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
+                    XPathMultiValue('.//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
                 ]
             ),
+            'download_url': StringValue(''),  # noqa
             'description_de': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#DE"]/text()'),  # noqa
             'description_fr': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#FR"]/text()'),  # noqa
             'description_it': XPathValue('.//gmd:description//gmd:LocalisedCharacterString[@locale = "#IT"]/text()'),  # noqa
@@ -569,7 +590,6 @@ class GeocatDcatServiceDistributionMetdata(GeocatDcatDistributionMetadata):
             'loc_url_en': XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
-            'download_url': StringValue(''),  # noqa
             'byte_size': StringValue(''),  # noqa
             'media_type': StringValue(''),  # noqa
             'format': StringValue(''),  # noqa
@@ -581,14 +601,21 @@ class GeocatDcatServiceDatasetMetadata(GeocatDcatDistributionMetadata):
     """ Provides access to the Geocat metadata """
 
     def get_metadata(self, dist_xml, dataset_meta):
-        dist = self.load(dist_xml)
-
-        dist['description'] = dataset_meta['description']
-        dist['issued'] = dataset_meta['issued']
-        dist['modified'] = dataset_meta['modified']
-        dist['format'] = ''
-        dist['media_type'] = dataset_meta.get('media_type', '')
-        return dist
+        service_datasets = []
+        for dist_xml in loader.xpath(dist_xml, '//gmd:identificationInfo//srv:containsOperations/srv:SV_OperationMetadata[.//srv:operationName//gco:CharacterString/text()]'):  # noqa
+            dist = super(GeocatDcatServiceDatasetMetadata, self).load(dist_xml)
+            dist['description'] = dataset_meta['description']
+            dist['issued'] = dataset_meta['issued']
+            dist['modified'] = dataset_meta['modified']
+            dist['format'] = ''
+            dist['media_type'] = dataset_meta.get('media_type', '')
+            try:
+                self._validate_url(dist.get('url'))
+                service_datasets.append(dist)
+            except ValueError:
+                log.debug("URL in resource invalid ('%s'), skipping resource..." % dist.get('url'))  # noqa
+                continue
+        return service_datasets
 
     def get_mapping(self):
         return {
