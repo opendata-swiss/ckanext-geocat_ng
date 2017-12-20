@@ -818,6 +818,18 @@
           </gmd:thesaurusName>
         </gmd:MD_Keywords>
       </gmd:descriptiveKeywords>
+      <gmd:resourceConstraints>
+          <che:CHE_MD_LegalConstraints gco:isoType="gmd:MD_LegalConstraints">
+              <gmd:otherConstraints xsi:type="gmd:PT_FreeText_PropertyType">
+                  <gco:CharacterString>Freie Nutzung</gco:CharacterString>
+                  <gmd:PT_FreeText>
+                      <gmd:textGroup>
+                          <gmd:LocalisedCharacterString locale="#DE">Freie Nutzung</gmd:LocalisedCharacterString>
+                      </gmd:textGroup>
+                  </gmd:PT_FreeText>
+              </gmd:otherConstraints>
+          </che:CHE_MD_LegalConstraints>
+      </gmd:resourceConstraints>
       <gmd:spatialRepresentationType>
         <gmd:MD_SpatialRepresentationTypeCode codeListValue="grid" codeList="http://standards.iso.org/ittf/PubliclyAvailableStandards/ISO_19139_Schemas/resources/codelist/ML_gmxCodelists.xml#MD_SpatialRepresentationTypeCode" />
       </gmd:spatialRepresentationType>
