@@ -59,6 +59,9 @@ class TestGeocatDcatDatasetMetadata(unittest.TestCase):
         for field in fields:
 	    self.assertIn(field, dataset)
 
+        # make sure only the defined fields are on the dataset
+        self.assertEquals(sorted(fields), sorted(dataset.keys()))
+
         from pprint import pprint
         for key, value in dataset.iteritems():
             pprint(value) 

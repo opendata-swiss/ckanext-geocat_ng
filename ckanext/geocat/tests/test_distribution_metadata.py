@@ -106,7 +106,7 @@ class TestGeocatDcatDistributionMetadata(unittest.TestCase):
         self.assertEquals(download.get('url'), download.get('download_url'))
 
         # rights
-        self.assertEquals('NonCommercialAllowed-CommercialAllowed-ReferenceRequired', download.get('rights')) 
+        self.assertEquals('NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired', download.get('rights')) 
 
         # license
         self.assertEquals('', download.get('license'))

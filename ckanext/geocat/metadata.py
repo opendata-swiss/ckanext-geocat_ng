@@ -110,7 +110,7 @@ class DcatMetadata(object):
         if 'see_alsos' in cleaned_dataset and not cleaned_dataset['see_alsos']:
             cleaned_dataset['see_alsos'] = []
 
-        # we collect rights for the distributions only, it is not an attribute on the dataset
+        # remove rights here, only needed on distributions
         del cleaned_dataset['rights']
 
         clean_dict = dict(cleaned_dataset)
@@ -368,8 +368,8 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'see_alsos': XPathMultiValue('//gmd:identificationInfo//gmd:aggregationInfo//gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString/text()'),  # noqa
             'rights': FirstInOrderValue(
                 [
-                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalicedCharacterString[@locale = "#DE" and ./text()]/text()'),  # noqa
-                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalicedCharacterString[@locale = "#FR" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalisedCharacterString[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalisedCharacterString[@locale = "#FR" and ./text()]/text()'),  # noqa
                 ]
             ),
         }
