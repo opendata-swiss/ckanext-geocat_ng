@@ -475,7 +475,7 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
             'Freie Nutzung. Quellenangabe ist Pflicht. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulässig.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceRequired',  # noqa
             'Utilisation libre. Obligation d’indiquer la source. Utilisation commerciale uniquement avec l’autorisation du fournisseur des données.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceRequired' # noqa
         }
-        if dist['rights'] in rights:
+        if dist.get('rights') in rights:
             dist['rights'] = rights[dist['rights']]
         else:
             dist['rights'] = ''
