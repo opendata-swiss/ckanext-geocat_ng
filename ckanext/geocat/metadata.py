@@ -413,6 +413,12 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
 
     def _get_dataset_metadata(self, xml):
         dataset = GeocatDcatDatasetMetadata()
+
+        # TODO: include_raw is an ugly hack to be able to get all extracted attributes
+        # In this case we need to access the 'rights' attribute, which we extract on the dataset level
+        # It is not available otherwise on the distribution level. Since we "clean" the dataset after the extraction
+        # (i.e. only the allowed attributes stay in the dict) we need to access the "raw" dataset metadata to get
+        # the value anyway. We should refactor this, to i.e. make the complete data always available to the distributions
         dataset_meta, raw_meta = dataset.load(xml, include_raw=True)
 
         # copy rights from raw metadata
