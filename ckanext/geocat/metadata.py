@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from datetime import datetime
 import time
 from collections import defaultdict
@@ -49,7 +51,7 @@ class DcatMetadata(object):
             "No mapping found for attribute '%s'" % ckan_attribute
         )
 
-    def load(self, meta_xml):
+    def load(self, meta_xml, include_raw=False):
         if isinstance(meta_xml, basestring):
             meta_xml = loader.from_string(meta_xml)
 
@@ -59,6 +61,8 @@ class DcatMetadata(object):
             dcat_metadata[key] = attribute.get_value(
                 xml=meta_xml
             )
+        if include_raw:
+            return (self._clean_dataset(dcat_metadata), dcat_metadata)
         return self._clean_dataset(dcat_metadata)
 
     def _clean_dataset(self, dataset):
@@ -105,6 +109,9 @@ class DcatMetadata(object):
         # clean see_alsos
         if 'see_alsos' in cleaned_dataset and not cleaned_dataset['see_alsos']:
             cleaned_dataset['see_alsos'] = []
+
+        # remove rights here, only needed on distributions
+        del cleaned_dataset['rights']
 
         clean_dict = dict(cleaned_dataset)
         log.debug("Cleaned dataset: %s" % clean_dict)
@@ -359,6 +366,12 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'temporals_end': XPathValue('//gmd:identificationInfo//gmd:extent//gmd:temporalElement//gml:TimePeriod/gml:endPosition/text()'),  # noqa
             'accrual_periodicity': XPathValue('//gmd:identificationInfo//che:CHE_MD_MaintenanceInformation/gmd:maintenanceAndUpdateFrequency/gmd:MD_MaintenanceFrequencyCode/@codeListValue'),  # noqa
             'see_alsos': XPathMultiValue('//gmd:identificationInfo//gmd:aggregationInfo//gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString/text()'),  # noqa
+            'rights': FirstInOrderValue(
+                [
+                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalisedCharacterString[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalisedCharacterString[@locale = "#FR" and ./text()]/text()'),  # noqa
+                ]
+            ),
         }
 
 
@@ -400,7 +413,19 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
 
     def _get_dataset_metadata(self, xml):
         dataset = GeocatDcatDatasetMetadata()
-        dataset_meta = dataset.load(xml)
+
+        # TODO: include_raw is an ugly hack to be able to get all extracted
+        # attributes. In this case we need to access the 'rights' attribute,
+        # which we extract on the dataset level. It is not available otherwise
+        # on the distribution level. Since we "clean" the dataset after the
+        # extraction (i.e. only the allowed attributes stay in the dict) we
+        # need to access the "raw" dataset metadata to get the value anyway.
+        # We should refactor this, to i.e. make the complete data always
+        # available to the distributions
+        dataset_meta, raw_meta = dataset.load(xml, include_raw=True)
+
+        # copy rights from raw metadata
+        dataset_meta['rights'] = raw_meta.get('rights')
 
         # add media_type to dataset metadata
         dataset_meta['media_type'] = ''
@@ -458,6 +483,25 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
             }
         else:
             dist['title'] = dict(dist['description'])
+
+        # map rights
+        rights = {
+            'Freie Nutzung': 'NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired',  # noqa
+            'Utilisation libre': 'NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired',  # noqa
+
+            'Freie Nutzung. Quellenangabe ist Pflicht.': 'NonCommercialAllowed-CommercialAllowed-ReferenceRequired',  # noqa
+            'Utilisation libre. Obligation d’indiquer la source.': 'NonCommercialAllowed-CommercialAllowed-ReferenceRequired',  # noqa
+
+            'Freie Nutzung. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulässig.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceNotRequired',  # noqa
+            'Utilisation libre. Utilisation à des fins commerciales uniquement avec l’autorisation du fournisseur des données.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceNotRequired',  # noqa
+
+            'Freie Nutzung. Quellenangabe ist Pflicht. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulässig.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceRequired',  # noqa
+            'Utilisation libre. Obligation d’indiquer la source. Utilisation commerciale uniquement avec l’autorisation du fournisseur des données.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceRequired' # noqa
+        }
+        if dataset_meta.get('rights') in rights:
+            dist['rights'] = rights[dataset_meta['rights']]
+        else:
+            dist['rights'] = ''
         del dist['name']
         del dist['protocol']
 
@@ -472,9 +516,9 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
 class GeocatDcatDownloadDistributionMetadata(GeocatDcatDistributionMetadata):
     """ Provides access to the Geocat metadata """
 
-    def get_metadata(self, dist_xml, dataset_meta):
+    def get_metadata(self, xml, dataset_meta):
         download_distributions = []
-        for dist_xml in loader.xpath(dist_xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]'):  # noqa
+        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-1.0-http--download" or .//gmd:protocol/gco:CharacterString/text() = "WWW:DOWNLOAD-URL"]'):  # noqa
             orig_dist = self._handle_single_distribution(
                 dist_xml,
                 dataset_meta
@@ -519,6 +563,7 @@ class GeocatDcatDownloadDistributionMetadata(GeocatDcatDistributionMetadata):
             'loc_url_en': XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
+            'rights': StringValue(''),
             'byte_size': StringValue(''),
             'media_type': StringValue(''),
             'format': StringValue(''),
@@ -547,9 +592,9 @@ class GeocatDcatDownloadDistributionMetadata(GeocatDcatDistributionMetadata):
 class GeocatDcatServiceDistributionMetadata(GeocatDcatDistributionMetadata):
     """ Provides access to the Geocat metadata """
 
-    def get_metadata(self, dist_xml, dataset_meta):
+    def get_metadata(self, xml, dataset_meta):
         service_distributions = []
-        for dist_xml in loader.xpath(dist_xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
+        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
             orig_dist = self._handle_single_distribution(
                 dist_xml,
                 dataset_meta
@@ -590,6 +635,7 @@ class GeocatDcatServiceDistributionMetadata(GeocatDcatDistributionMetadata):
             'loc_url_en': XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
             'license': StringValue(''),  # noqa
             'identifier': StringValue(''),  # noqa
+            'rights': StringValue(''),  # noqa
             'byte_size': StringValue(''),  # noqa
             'media_type': StringValue(''),  # noqa
             'format': StringValue(''),  # noqa
@@ -600,9 +646,9 @@ class GeocatDcatServiceDistributionMetadata(GeocatDcatDistributionMetadata):
 class GeocatDcatServiceDatasetMetadata(GeocatDcatDistributionMetadata):
     """ Provides access to the Geocat metadata """
 
-    def get_metadata(self, dist_xml, dataset_meta):
+    def get_metadata(self, xml, dataset_meta):
         service_datasets = []
-        for dist_xml in loader.xpath(dist_xml, '//gmd:identificationInfo//srv:containsOperations/srv:SV_OperationMetadata[.//srv:operationName//gco:CharacterString/text()]'):  # noqa
+        for dist_xml in loader.xpath(xml, '//gmd:identificationInfo//srv:containsOperations/srv:SV_OperationMetadata[.//srv:operationName//gco:CharacterString/text()]'):  # noqa
             dist = super(GeocatDcatServiceDatasetMetadata, self).load(dist_xml)
             dist['description'] = dataset_meta['description']
             dist['issued'] = dataset_meta['issued']

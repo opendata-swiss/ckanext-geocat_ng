@@ -49,6 +49,7 @@ class TestGeocatDcatDistributionMetadata(unittest.TestCase):
             'license',
             'byte_size',
             'media_type',
+            'rights',
             'format',
             'coverage',
         ]
@@ -103,6 +104,9 @@ class TestGeocatDcatDistributionMetadata(unittest.TestCase):
         self.assertEquals('http://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/data.zip', download.get('url'))
         self.assertEquals('http://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/data.zip', download.get('download_url'))
         self.assertEquals(download.get('url'), download.get('download_url'))
+
+        # rights
+        self.assertEquals('NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired', download.get('rights')) 
 
         # license
         self.assertEquals('', download.get('license'))
