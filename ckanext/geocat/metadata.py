@@ -111,7 +111,7 @@ class DcatMetadata(object):
             cleaned_dataset['see_alsos'] = []
 
         # remove rights here, only needed on distributions
-        del cleaned_dataset['rights']
+        cleaned_dataset.pop('rights', None)
 
         clean_dict = dict(cleaned_dataset)
         log.debug("Cleaned dataset: %s" % clean_dict)
