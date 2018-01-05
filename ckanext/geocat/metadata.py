@@ -111,7 +111,7 @@ class DcatMetadata(object):
             cleaned_dataset['see_alsos'] = []
 
         # remove rights here, only needed on distributions
-        del cleaned_dataset['rights']
+        cleaned_dataset.pop('rights', None)
 
         clean_dict = dict(cleaned_dataset)
         log.debug("Cleaned dataset: %s" % clean_dict)
@@ -649,15 +649,17 @@ class GeocatDcatServiceDatasetMetadata(GeocatDcatDistributionMetadata):
     def get_metadata(self, xml, dataset_meta):
         service_datasets = []
         for dist_xml in loader.xpath(xml, '//gmd:identificationInfo//srv:containsOperations/srv:SV_OperationMetadata[.//srv:operationName//gco:CharacterString/text()]'):  # noqa
-            dist = super(GeocatDcatServiceDatasetMetadata, self).load(dist_xml)
-            dist['description'] = dataset_meta['description']
-            dist['issued'] = dataset_meta['issued']
-            dist['modified'] = dataset_meta['modified']
-            dist['format'] = ''
-            dist['media_type'] = dataset_meta.get('media_type', '')
+            orig_dist = super(GeocatDcatServiceDatasetMetadata, self).load(dist_xml)  # noqa
+            orig_dist['description'] = dataset_meta['description']
+            orig_dist['issued'] = dataset_meta['issued']
+            orig_dist['modified'] = dataset_meta['modified']
+            orig_dist['format'] = ''
+            orig_dist['media_type'] = dataset_meta.get('media_type', '')
             try:
-                self._validate_url(dist.get('url'))
-                service_datasets.append(dist)
+                for url in orig_dist['url_list']:
+                    dist = self._create_dist_copy(orig_dist, url)
+                    self._validate_url(dist.get('url'))
+                    service_datasets.append(dist)
             except ValueError:
                 log.debug("URL in resource invalid ('%s'), skipping resource..." % dist.get('url'))  # noqa
                 continue
@@ -670,13 +672,14 @@ class GeocatDcatServiceDatasetMetadata(GeocatDcatDistributionMetadata):
             'title_it': XPathValue('.//srv:operationName/gco:CharacterString/text()'),  # noqa
             'title_en': XPathValue('.//srv:operationName/gco:CharacterString/text()'),  # noqa
             'language': ArrayValue([]),  # noqa
-            'url': FirstInOrderValue(
+            'url': StringValue(''),  # noqa
+            'url_list': FirstInOrderValue(
                 [
-                    XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
-                    XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
-                    XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
-                    XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
-                    XPathValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
+                    XPathMultiValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#FR" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#EN" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[@locale = "#IT" and ./text()]/text()'),  # noqa
+                    XPathMultiValue('.//srv:connectPoint//gmd:linkage//che:LocalisedURL[./text()]/text()'),  # noqa
                 ]
             ),
             'description': StringValue(''),
