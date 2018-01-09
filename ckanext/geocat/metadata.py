@@ -655,6 +655,7 @@ class GeocatDcatServiceDatasetMetadata(GeocatDcatDistributionMetadata):
             orig_dist['modified'] = dataset_meta['modified']
             orig_dist['format'] = ''
             orig_dist['media_type'] = dataset_meta.get('media_type', '')
+            orig_dist['rights'] = dataset_meta.get('rights', '')
             try:
                 for url in orig_dist['url_list']:
                     dist = self._create_dist_copy(orig_dist, url)
@@ -690,6 +691,12 @@ class GeocatDcatServiceDatasetMetadata(GeocatDcatDistributionMetadata):
             'media_type': StringValue(''),  # noqa
             'format': StringValue(''),  # noqa
             'coverage': StringValue(''),  # noqa
+            'rights': FirstInOrderValue(
+                [
+                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalisedCharacterString[@locale = "#DE" and ./text()]/text()'),  # noqa
+                    XPathValue('.//gmd:resourceConstraints//gmd:otherConstraints//gmd:LocalisedCharacterString[@locale = "#FR" and ./text()]/text()'),  # noqa
+                ]
+            ),
         }
 
 
