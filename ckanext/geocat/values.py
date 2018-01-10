@@ -49,7 +49,7 @@ class XPathValue(Value):
             log.debug('XPath not found: %s, error: %s' % (xpath, str(e)))
             value = ''
 
-        if not value:
+        if len(value) == 0 or value is None or not value:
             value = self.env['empty_value']
         return value
 

@@ -42,6 +42,60 @@ To configure the harvester you have several harvester config options (in the har
 * `organization`: The organization to be associated to all harvested datasets (default: the organization, which owns the harvest source)
 
 
+## CLI Commands
+
+This extension provides a number of CLI commands to query/debug the results of the CSW server.
+
+
+### `search`
+
+To run an arbitrary query against the defined CSW server use the `search` command:
+
+```
+paster geocat search birds
+```
+
+This command takes an optional second parameter to specifiy the CSW url (defaults to `http://www.geocat.ch/geonetwork/srv/eng/csw`)
+
+### `cql`
+
+To run an arbitrary CQL query against the defined CSW server use the `cql` command:
+
+```
+paster geocat cql "csw:AnyText like '%birds%'"
+paster geocat cql "keyword = 'opendata.swiss'" https://www.geocat.ch/geonetwork/srv/eng/csw-ZH
+```
+
+This command takes an optional second parameter to specifiy the CSW url (defaults to `http://www.geocat.ch/geonetwork/srv/eng/csw`)
+
+### `list`
+
+To list all IDs from the defined CSW server use the `list` command:
+
+```
+paster geocat list
+paster geocat list "keyword = 'opendata.swiss'" 
+paster geocat list "keyword = 'opendata.swiss'" https://www.geocat.ch/geonetwork/srv/eng/csw-ZH/
+```
+
+The first parameter is an arbitrary CQL query, if you omit it, the default query is used (`keyword = 'opendata.swiss'`).
+
+This command takes an optional second parameter to specifiy the CSW url (defaults to `http://www.geocat.ch/geonetwork/srv/eng/csw`)
+
+### `dataset`
+
+To get a specific record (by ID), use the `dataset` command.
+Use the `list` command above to get an ID:
+
+```
+paster geocat dataset "1eac72b1-068d-4272-b011-d0010cc4bf676"
+paster geocat dataset "8ae7eeb1-04d4-4c78-93e1-4225412db6a4" https://www.geocat.ch/geonetwork/srv/eng/csw-ZH/
+```
+
+This command takes an optional second parameter to specifiy the CSW url (defaults to `http://www.geocat.ch/geonetwork/srv/eng/csw`)
+
+The output shows the returned XML from the CSW and the parsed dataset and distribution dictionaries.
+
 ## Development Installation
 
 To install ckanext-geocat for development, activate your CKAN virtualenv and
