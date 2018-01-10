@@ -6,6 +6,7 @@ import ckanext.geocat.xml_loader as loader
 
 
 class GeocatCommand(ckan.lib.cli.CkanCommand):
+
     '''Command to query geocat
 
     Usage::
@@ -15,9 +16,11 @@ class GeocatCommand(ckan.lib.cli.CkanCommand):
             paster geocat list "keyword = 'opendata.swiss'" https://www.geocat.ch/geonetwork/srv/eng/csw-ZH/
             paster geocat dataset "8ae7eeb1-04d4-4c78-93e1-4225412db6a4" https://www.geocat.ch/geonetwork/srv/eng/csw-ZH/
 
-    '''
+    '''  # noqa
     summary = __doc__.split('\n')[0]
     usage = __doc__
+    DEFAULT_CSW_SERVER = 'http://www.geocat.ch/geonetwork/srv/eng/csw'
+    DEFAULT_CQL = "keyword = 'opendata.swiss'"
 
     def command(self):
         options = {
@@ -43,16 +46,16 @@ class GeocatCommand(ckan.lib.cli.CkanCommand):
             self.helpCmd()
             sys.exit(1)
         if csw_url is None:
-            csw_url = 'http://www.geocat.ch/geonetwork/srv/eng/csw'
+            csw_url = self.DEFAULT_CSW_SERVER
         csw = md.CswHelper(url=csw_url.rstrip('/'))
         for xml, value in csw.get_by_search(cql=query):
             print xml
 
     def listCmd(self, cql=None, csw_url=None):
         if cql is None:
-            cql = "keyword = 'opendata.swiss'"
+            cql = self.DEFAULT_CQL
         if csw_url is None:
-            csw_url = 'http://www.geocat.ch/geonetwork/srv/eng/csw'
+            csw_url = self.DEFAULT_CSW_SERVER
 
         csw = md.CswHelper(url=csw_url.rstrip('/'))
 
@@ -66,7 +69,7 @@ class GeocatCommand(ckan.lib.cli.CkanCommand):
             self.helpCmd()
             sys.exit(1)
         if csw_url is None:
-            csw_url = 'http://www.geocat.ch/geonetwork/srv/eng/csw'
+            csw_url = self.DEFAULT_CSW_SERVER
 
         csw = md.CswHelper(url=csw_url.rstrip('/'))
         print "ID: %s" % id
@@ -86,13 +89,13 @@ class GeocatCommand(ckan.lib.cli.CkanCommand):
         print "Distributions:"
         pprint(dist_metadata.get_metadata(xml_elem))
 
-    def searchCmd(self, query=None):
+    def searchCmd(self, query=None, csw_url=None):
         if (query is None):
             print "Argument 'query' must be set"
             self.helpCmd()
             sys.exit(1)
         if csw_url is None:
-            csw_url = 'http://www.geocat.ch/geonetwork/srv/eng/csw'
+            csw_url = self.DEFAULT_CSW_SERVER
         csw = md.CswHelper(url=csw_url.rstrip('/'))
         for xml, value in csw.get_by_search(query):
             print xml
