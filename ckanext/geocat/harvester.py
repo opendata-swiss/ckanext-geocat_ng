@@ -10,6 +10,7 @@ import ckanext.geocat.xml_loader as loader
 from ckan.logic import get_action, NotFound
 from ckan import model
 from ckan.model import Session
+import uuid
 
 import logging
 log = logging.getLogger(__name__)
@@ -223,17 +224,22 @@ class GeocatHarvester(HarvesterBase):
             except NotFound:
                 log.debug("No package found, create a new one!")
 
+                # generate an id to reference it in the harvest_object
+                pkg_dict['id'] = unicode(uuid.uuid4())
+
+                log.info('Package with GUID %s does not exist, '
+                         'let\'s create it' % harvest_object.guid)
+
+                harvest_object.current = True
+                harvest_object.package_id = pkg_dict['id']
+                harvest_object.add()
+
                 model.Session.execute(
-                    'SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED'
-                )
+                    'SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED')
                 model.Session.flush()
 
                 created_pkg = get_action('package_create')(
                     package_context, pkg_dict)
-
-                harvest_object.current = True
-                harvest_object.package_id = created_pkg['id']
-                harvest_object.add()
 
                 log.debug("Created PKG: %s" % created_pkg)
 
