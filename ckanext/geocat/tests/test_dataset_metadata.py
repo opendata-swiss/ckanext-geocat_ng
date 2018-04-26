@@ -260,3 +260,17 @@ class TestGeocatDcatDatasetMetadata(unittest.TestCase):
         self.assertEquals(int(time.mktime(r.timetuple())), dataset['modified'])
 
         self.assertNotEquals(dataset['issued'], dataset['modified'])
+
+    def test_date_issued_before_1900(self):
+        dcat = metadata.GeocatDcatDatasetMetadata()
+        dataset = self._load_xml(dcat, 'publication_date_before_1900.xml')
+
+        self.assertEquals(dataset['issued'], -2461622400)
+        issued = datetime.fromtimestamp(dataset['issued'])
+        self.assertEquals(issued.date().isoformat(), '1891-12-30')
+
+        self.assertEquals(dataset['modified'], -2461536000)
+        modified = datetime.fromtimestamp(dataset['modified'])
+        self.assertEquals(modified.date().isoformat(), '1891-12-31')
+
+        self.assertNotEquals(dataset['issued'], dataset['modified'])
