@@ -491,17 +491,17 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
 
         # map rights
         rights = {
-            'Freie Nutzung': 'NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired',  # noqa
-            'Utilisation libre': 'NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired',  # noqa
+            u'Freie Nutzung': 'NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired',  # noqa
+            u'Utilisation libre': 'NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired',  # noqa
 
-            'Freie Nutzung. Quellenangabe ist Pflicht.': 'NonCommercialAllowed-CommercialAllowed-ReferenceRequired',  # noqa
-            'Utilisation libre. Obligation d’indiquer la source.': 'NonCommercialAllowed-CommercialAllowed-ReferenceRequired',  # noqa
+            u'Freie Nutzung. Quellenangabe ist Pflicht.': 'NonCommercialAllowed-CommercialAllowed-ReferenceRequired',  # noqa
+            u'Utilisation libre. Obligation d’indiquer la source.': 'NonCommercialAllowed-CommercialAllowed-ReferenceRequired',  # noqa
 
-            'Freie Nutzung. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulässig.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceNotRequired',  # noqa
-            'Utilisation libre. Utilisation à des fins commerciales uniquement avec l’autorisation du fournisseur des données.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceNotRequired',  # noqa
+            u'Freie Nutzung. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulässig.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceNotRequired',  # noqa
+            u'Utilisation libre. Utilisation à des fins commerciales uniquement avec l’autorisation du fournisseur des données.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceNotRequired',  # noqa
 
-            'Freie Nutzung. Quellenangabe ist Pflicht. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulässig.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceRequired',  # noqa
-            'Utilisation libre. Obligation d’indiquer la source. Utilisation commerciale uniquement avec l’autorisation du fournisseur des données.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceRequired' # noqa
+            u'Freie Nutzung. Quellenangabe ist Pflicht. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulässig.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceRequired',  # noqa
+            u'Utilisation libre. Obligation d’indiquer la source. Utilisation commerciale uniquement avec l’autorisation du fournisseur des données.': 'NonCommercialAllowed-CommercialWithPermission-ReferenceRequired' # noqa
         }
         if dataset_meta.get('rights') in rights:
             dist['rights'] = rights[dataset_meta['rights']]
