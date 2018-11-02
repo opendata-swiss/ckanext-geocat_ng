@@ -188,7 +188,7 @@ class GeocatHarvester(HarvesterBase):
                     )
                     check_dict = {'identifier': identifier}
                     self._find_existing_package(check_dict)
-                    existing_see_alsos.append(identifier)
+                    existing_see_alsos.append({'dataset_identifier': identifier})  # noqa
                 except NotFound:
                     continue
             pkg_dict['see_alsos'] = existing_see_alsos

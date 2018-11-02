@@ -191,7 +191,8 @@ class TestGeocatDcatDatasetMetadata(unittest.TestCase):
 
         # see alsos
         self.assertTrue(hasattr(dataset['see_alsos'], '__iter__'))
-        self.assertEquals(0, len(dataset['see_alsos']))
+        self.assertEquals(1, len(dataset['see_alsos']))
+        self.assertEquals('8454f7d9-e3f2-4cc7-be6d-a82196660ccd', dataset['see_alsos'][0])  # noqa
 
     def test_fields_values_de_only(self):
         dcat = metadata.GeocatDcatDatasetMetadata()
