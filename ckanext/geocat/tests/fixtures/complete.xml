@@ -851,6 +851,21 @@
       <gmd:topicCategory>
         <gmd:MD_TopicCategoryCode>environment_EnvironmentalProtection</gmd:MD_TopicCategoryCode>
       </gmd:topicCategory>
+      <gmd:aggregationInfo>
+        <gmd:MD_AggregateInformation>
+           <gmd:aggregateDataSetIdentifier>
+              <gmd:MD_Identifier>
+                 <gmd:code>
+                    <gco:CharacterString>8454f7d9-e3f2-4cc7-be6d-a82196660ccd</gco:CharacterString>
+                 </gmd:code>
+              </gmd:MD_Identifier>
+           </gmd:aggregateDataSetIdentifier>
+           <gmd:associationType>
+              <gmd:DS_AssociationTypeCode codeList="http://standards.iso.org/ittf/PubliclyAvailableStandards/ISO_19139_Schemas/resources/codelist/ML_gmxCodelists.xml#DS_AssociationTypeCode"
+                                          codeListValue="largerWorkCitation"/>
+           </gmd:associationType>
+        </gmd:MD_AggregateInformation>
+     </gmd:aggregationInfo>
       <gmd:extent xmlns:xlink="http://www.w3.org/1999/xlink" xlink:show="embed">
         <gmd:EX_Extent>
           <gmd:description xsi:type="gmd:PT_FreeText_PropertyType">
