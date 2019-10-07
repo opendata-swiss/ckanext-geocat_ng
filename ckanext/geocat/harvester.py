@@ -3,11 +3,12 @@
 import traceback
 
 from ckan.lib.helpers import json
-from ckanext.harvest.model import HarvestObject
+from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from ckanext.harvest.harvesters import HarvesterBase
 import ckanext.geocat.metadata as md
 import ckanext.geocat.xml_loader as loader
 from ckan.logic import get_action, NotFound
+import ckan.plugins.toolkit as tk
 from ckan import model
 from ckan.model import Session
 import uuid
@@ -42,6 +43,9 @@ class GeocatHarvester(HarvesterBase):
         if 'user' not in self.config:
             self.config['user'] = self.HARVEST_USER
 
+        if 'delete_missing_datasets' not in self.config:
+            self.config['delete_missing_datasets'] = False
+
         log.debug('Using config: %r' % self.config)
 
     def _find_existing_package(self, package_dict):
@@ -56,6 +60,17 @@ class GeocatHarvester(HarvesterBase):
 
         try:
             self._set_config(harvest_job.source.config)
+
+            if 'organization' not in self.config:
+                context = {
+                    'model': model,
+                    'session': Session,
+                    'ignore_auth': True
+                }
+                source_dataset = get_action('package_show')(
+                    context, {'id': harvest_job.source_id})
+                self.config['organization'] = source_dataset.get(
+                    'organization').get('name')
         except GeocatConfigError, e:
             self._save_gather_error(
                 'Config value missing: %s' % str(e),
@@ -66,6 +81,7 @@ class GeocatHarvester(HarvesterBase):
         csw_url = None
         try:
             harvest_obj_ids = []
+            gathered_dataset_identifiers = []
             csw_url = harvest_job.source.url.rstrip('/')
             csw = md.CswHelper(url=csw_url)
 
@@ -81,10 +97,12 @@ class GeocatHarvester(HarvesterBase):
                 )
                 harvest_obj.save()
                 harvest_obj_ids.append(harvest_obj.id)
+                gathered_dataset_identifiers.append('%s@%s' % (
+                    record_id,
+                    self.config['organization']
+                ))
 
             log.debug('IDs: %r' % harvest_obj_ids)
-
-            return harvest_obj_ids
         except Exception, e:
             self._save_gather_error(
                 'Unable to get content for URL: %s: %s / %s'
@@ -92,6 +110,15 @@ class GeocatHarvester(HarvesterBase):
                 harvest_job
             )
             return []
+
+        if self.config['delete_missing_datasets']:
+            delete_ids = self._check_for_deleted_datasets(
+                harvest_job, gathered_dataset_identifiers
+            )
+            log.debug('delete_ids: %r' % delete_ids)
+            harvest_obj_ids.extend(delete_ids)
+
+        return harvest_obj_ids
 
     def fetch_stage(self, harvest_object):
         log.debug('In GeocatHarvester fetch_stage')
@@ -145,8 +172,14 @@ class GeocatHarvester(HarvesterBase):
             )
             return False
 
-        try:
+        # check if dataset must be deleted
+        import_action = self._get_object_extra(harvest_object, 'import_action')
+        if import_action and import_action == 'delete':
+            log.debug('import action: %s' % import_action)
+            harvest_object.current = False
+            return self._delete_dataset({'id': harvest_object.guid})
 
+        try:
             if 'organization' not in self.config:
                 context = {
                     'model': model,
@@ -255,6 +288,107 @@ class GeocatHarvester(HarvesterBase):
                 harvest_object
             )
             return False
+
+    def _create_new_context(self):
+        # get the site user
+        site_user = tk.get_action('get_site_user')(
+            {'model': model, 'ignore_auth': True}, {})
+        context = {
+            'model': model,
+            'session': Session,
+            'user': site_user['name'],
+        }
+        return context
+
+    def _get_existing_package_names(self, harvest_job):
+        context = self._create_new_context()
+        n = 2
+        page = 1
+        existing_package_names = []
+        while True:
+            search_params = {
+                'fq': 'harvest_source_id:"{0}"'.format(harvest_job.source_id),
+                'rows': n,
+                'start': n * (page - 1),
+            }
+            try:
+                existing_packages = get_action('package_search')(
+                    context, search_params
+                )
+                if len(existing_packages['results']):
+                    existing_package_names.extend(
+                        [pkg['name'] for pkg in existing_packages['results']]
+                    )
+                    page = page + 1
+                else:
+                    break
+            except NotFound:
+                if page == 1:
+                    log.debug('Could not find pkges for source %s'
+                              % harvest_job.source_id)
+        log.info('Found %d packages for source %s' %
+                 (len(existing_package_names), harvest_job.source_id))
+        return existing_package_names
+
+    def _get_package_names_from_identifiers(self, package_identifiers):
+        package_names = []
+        for identifier in package_identifiers:
+            pkg = {'identifier': identifier}
+            try:
+                existing_package = self._find_existing_package(pkg)
+                package_names.append(existing_package['name'])
+            except NotFound:
+                continue
+
+        return package_names
+
+    def _check_for_deleted_datasets(self, harvest_job,
+                                    gathered_dataset_identifiers):
+        existing_package_names = self._get_existing_package_names(
+            harvest_job
+        )
+        gathered_existing_package_names = self._get_package_names_from_identifiers(  # noqa
+            gathered_dataset_identifiers
+        )
+        delete_names = list(set(existing_package_names) -
+                            set(gathered_existing_package_names))
+        # gather delete harvest ids
+        delete_ids = []
+
+        for package_name in delete_names:
+            log.debug(
+                'Dataset `%s` has been deleted at the source' %
+                package_name)
+
+            if self.config['delete_missing_datasets']:
+                log.info('Add `%s` for deletion', package_name)
+
+                obj = HarvestObject(
+                    guid=package_name,
+                    job=harvest_job,
+                    extras=[HarvestObjectExtra(key='import_action',
+                                               value='delete')]
+                )
+                obj.save()
+                log.debug('adding ' + obj.guid + ' to the queue')
+
+                delete_ids.append(obj.id)
+        return delete_ids
+
+    def _delete_dataset(self, package_dict):
+        log.debug('deleting dataset %s' % package_dict['id'])
+        context = self._create_new_context()
+        get_action('dataset_purge')(
+            context.copy(),
+            package_dict
+        )
+        return True
+
+    def _get_object_extra(self, harvest_object, key):
+        for extra in harvest_object.extras:
+            if extra.key == key:
+                return extra.value
+        return None
 
 
 class GeocatConfigError(Exception):

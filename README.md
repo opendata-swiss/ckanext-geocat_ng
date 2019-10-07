@@ -40,6 +40,8 @@ To configure the harvester you have several harvester config options (in the har
 * `cql`: The CQL query to be used when requesting the CSW service (default: `keyword = 'opendata.swiss'`)
 * `user`: The user to be used when importing the datasets (default: `harvest`)
 * `organization`: The organization to be associated to all harvested datasets (default: the organization, which owns the harvest source)
+* `delete_missing_datasets`: Boolean flag (true/false) to determine if this harvester should delete existing datasets that are no longer included in
+the harvest-source (default: `false`)
 
 
 ## CLI Commands
