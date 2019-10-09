@@ -11,5 +11,4 @@ trap "cleanup" EXIT
 # Check PEP-8 code style and McCabe complexity
 flake8 --statistics --show-source ckanext
 
-# run tests
-nosetests --verbose ckanext/geocat
+nosetests --ckan --nologcapture --with-pylons=subdir/test.ini --with-coverage --cover-package=ckanext.geocat --cover-inclusive --cover-erase --cover-tests ckanext/geocat
