@@ -240,7 +240,10 @@ class GeocatHarvester(HarvesterBase):
 
             log.debug('package dict: %s' % pkg_dict)
 
-            package_context = {'ignore_auth': True}
+            package_context = {
+                'ignore_auth': True,
+                'user': self.config['user'],
+            }
             try:
                 existing = self._find_existing_package(pkg_dict)
                 log.debug(
