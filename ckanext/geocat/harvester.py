@@ -8,6 +8,8 @@ from ckanext.harvest.harvesters import HarvesterBase
 import ckanext.geocat.metadata as md
 import ckanext.geocat.xml_loader as loader
 from ckan.logic import get_action, NotFound
+from ckan.logic.schema import default_create_package_schema
+from ckan.lib.navl.validators import ignore
 import ckan.plugins.toolkit as tk
 from ckan import model
 from ckan.model import Session
@@ -240,9 +242,14 @@ class GeocatHarvester(HarvesterBase):
 
             log.debug('package dict: %s' % pkg_dict)
 
+            # Change default schema
+            schema = default_create_package_schema()
+            schema['__junk'] = [ignore]
+
             package_context = {
                 'ignore_auth': True,
                 'user': self.config['user'],
+                'schema': schema,
             }
             try:
                 existing = self._find_existing_package(pkg_dict)
