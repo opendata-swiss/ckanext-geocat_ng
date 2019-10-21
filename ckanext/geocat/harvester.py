@@ -54,8 +54,20 @@ class GeocatHarvester(HarvesterBase):
         data_dict = {'identifier': package_dict['identifier']}
         package_show_context = {'model': model, 'session': Session,
                                 'ignore_auth': True}
-        return get_action('ogdch_dataset_by_identifier')(
+        return self._dataset_by_identifier(
             package_show_context, data_dict)
+
+    def _dataset_by_identifier(self, context, data_dict):
+        user = tk.get_action('get_site_user')({'ignore_auth': True}, {})
+        context.update({'user': user['name']})
+        identifier = tk.get_or_bust(data_dict, 'identifier')
+
+        param = 'identifier:%s' % identifier
+        result = tk.get_action('package_search')(context, {'fq': param})
+        try:
+            return result['results'][0]
+        except (KeyError, IndexError, TypeError):
+            raise NotFound
 
     def gather_stage(self, harvest_job):
         log.debug('In GeocatHarvester gather_stage')
