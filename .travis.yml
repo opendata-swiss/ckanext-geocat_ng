@@ -20,4 +20,4 @@ services:
 install:
     - bash travis-build.bash
 
-script: ./build.sh
+script: bin/travis-run.sh
