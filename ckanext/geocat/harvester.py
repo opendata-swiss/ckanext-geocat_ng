@@ -58,7 +58,8 @@ class GeocatHarvester(HarvesterBase):
         package_show_context.update({'user': user['name']})
 
         param = 'identifier:%s' % package_dict['identifier']
-        result = tk.get_action('package_search')(package_show_context, {'fq': param})
+        result = tk.get_action('package_search')(package_show_context,
+                                                 {'fq': param})
         try:
             return result['results'][0]
         except (KeyError, IndexError, TypeError):

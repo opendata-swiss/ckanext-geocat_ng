@@ -9,7 +9,7 @@
                              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" gco:isoType="gmd:MD_Metadata"
                              xsi:schemaLocation="http://www.geocat.ch/2008/che http://www.isotc211.org/2005/gmd http://www.isotc211.org/2005/gmd/gmd.xsd http://www.isotc211.org/2005/srv http://schemas.opengis.net/iso/19139/20060504/srv/srv.xsd">
             <gmd:fileIdentifier>
-                <gco:CharacterString>93814e81-2466-4690-b54d-c1d958f1c3b8</gco:CharacterString>
+                <gco:CharacterString>2466-4690-b54d-c1d958f1c3b8-93814e81</gco:CharacterString>
             </gmd:fileIdentifier>
             <gmd:language xmlns:xalan="http://xml.apache.org/xalan" xmlns:comp="http://www.geocat.ch/2003/05/gateway/GM03Comprehensive">
                 <gco:CharacterString>ger</gco:CharacterString>

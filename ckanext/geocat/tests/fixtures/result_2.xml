@@ -330,13 +330,13 @@
       <gmd:citation>
         <gmd:CI_Citation>
           <gmd:title xsi:type="gmd:PT_FreeText_PropertyType">
-            <gco:CharacterString>Lärmbelastung durch Eisenbahnverkehr Nacht</gco:CharacterString>
+            <gco:CharacterString>Lärmbelastung durch Eisenbahnverkehr Tag</gco:CharacterString>
             <gmd:PT_FreeText>
               <gmd:textGroup>
                 <gmd:LocalisedCharacterString locale="#FR">Exposition au bruit du trafic ferroviaire, nuit</gmd:LocalisedCharacterString>
               </gmd:textGroup>
               <gmd:textGroup>
-                <gmd:LocalisedCharacterString locale="#DE">Lärmbelastung durch Eisenbahnverkehr Nacht</gmd:LocalisedCharacterString>
+                <gmd:LocalisedCharacterString locale="#DE">Lärmbelastung durch Eisenbahnverkehr Tag</gmd:LocalisedCharacterString>
               </gmd:textGroup>
               <gmd:textGroup>
                 <gmd:LocalisedCharacterString locale="#EN">Nighttime railway noise exposure</gmd:LocalisedCharacterString>
