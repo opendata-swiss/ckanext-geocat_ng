@@ -51,19 +51,14 @@ class GeocatHarvester(HarvesterBase):
         log.debug('Using config: %r' % self.config)
 
     def _find_existing_package(self, package_dict):
-        data_dict = {'identifier': package_dict['identifier']}
         package_show_context = {'model': model, 'session': Session,
                                 'ignore_auth': True}
-        return self._dataset_by_identifier(
-            package_show_context, data_dict)
 
-    def _dataset_by_identifier(self, context, data_dict):
         user = tk.get_action('get_site_user')({'ignore_auth': True}, {})
-        context.update({'user': user['name']})
-        identifier = tk.get_or_bust(data_dict, 'identifier')
+        package_show_context.update({'user': user['name']})
 
-        param = 'identifier:%s' % identifier
-        result = tk.get_action('package_search')(context, {'fq': param})
+        param = 'identifier:%s' % package_dict['identifier']
+        result = tk.get_action('package_search')(package_show_context, {'fq': param})
         try:
             return result['results'][0]
         except (KeyError, IndexError, TypeError):
@@ -93,9 +88,10 @@ class GeocatHarvester(HarvesterBase):
             return []
 
         csw_url = None
+        harvest_obj_ids = []
+        gathered_dataset_identifiers = []
+
         try:
-            harvest_obj_ids = []
-            gathered_dataset_identifiers = []
             csw_url = harvest_job.source.url.rstrip('/')
             csw = md.CswHelper(url=csw_url)
 
