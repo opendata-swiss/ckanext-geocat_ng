@@ -321,7 +321,7 @@ class GeocatHarvester(HarvesterBase):
 
     def _get_existing_package_names(self, harvest_job):
         context = self._create_new_context()
-        n = 2
+        n = 500
         page = 1
         existing_package_names = []
         while True:
