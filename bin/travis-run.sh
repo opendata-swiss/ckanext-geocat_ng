@@ -1,6 +1,14 @@
-#!/bin/sh -e
+#!/bin/bash
 
-echo "NO_START=0\nJETTY_HOST=127.0.0.1\nJETTY_PORT=8983\nJAVA_HOME=$JAVA_HOME" | sudo tee /etc/default/jetty
-sudo cp ckan/ckan/config/solr/schema.xml /etc/solr/conf/schema.xml
-sudo service jetty restart
-nosetests --nologcapture --with-pylons=subdir/test.ini --with-coverage --cover-package=ckanext.geocat --cover-inclusive --cover-erase --cover-tests
+set -e
+
+function cleanup {
+    exit $?
+}
+
+trap "cleanup" EXIT
+
+# Check PEP-8 code style and McCabe complexity
+flake8 --statistics --show-source ckanext
+
+nosetests --ckan --nologcapture --with-pylons=subdir/test.ini --with-coverage --cover-package=ckanext.geocat --cover-inclusive --cover-erase --cover-tests ckanext/geocat
