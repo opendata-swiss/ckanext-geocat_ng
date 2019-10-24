@@ -8,7 +8,8 @@ from ckanext.harvest.harvesters import HarvesterBase
 import ckanext.geocat.metadata as md
 import ckanext.geocat.xml_loader as loader
 from ckan.logic import get_action, NotFound
-from ckan.logic.schema import default_create_package_schema
+from ckan.logic.schema import default_update_package_schema,\
+    default_create_package_schema
 from ckan.lib.navl.validators import ignore
 import ckan.plugins.toolkit as tk
 from ckan import model
@@ -251,16 +252,18 @@ class GeocatHarvester(HarvesterBase):
 
             log.debug('package dict: %s' % pkg_dict)
 
-            # Change default schema
-            schema = default_create_package_schema()
-            schema['__junk'] = [ignore]
-
             package_context = {
                 'ignore_auth': True,
                 'user': self.config['user'],
-                'schema': schema,
             }
             try:
+                # Change default schema to ignore lists of dicts, which
+                # are stored in the '__junk' field
+                schema = default_update_package_schema()
+                schema['__junk'] = [ignore]
+
+                package_context['schema'] = schema
+
                 existing = self._find_existing_package(pkg_dict)
                 log.debug(
                     "Existing package found, updating %s..." % existing['id']
@@ -274,6 +277,13 @@ class GeocatHarvester(HarvesterBase):
                 harvest_object.save()
                 log.debug("Updated PKG: %s" % updated_pkg)
             except NotFound:
+                # Change default schema to ignore lists of dicts, which
+                # are stored in the '__junk' field
+                schema = default_create_package_schema()
+                schema['__junk'] = [ignore]
+
+                package_context['schema'] = schema
+
                 log.debug("No package found, create a new one!")
 
                 # generate an id to reference it in the harvest_object
