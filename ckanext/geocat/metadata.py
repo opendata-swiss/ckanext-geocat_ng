@@ -40,24 +40,12 @@ class DcatMetadata(object):
         """
         raise NotImplementedError
 
-    def get_metadata_keys(self):
-        return self.get_mapping().keys()
-
-    def get_attribute(self, ckan_attribute):
-        mapping = self.get_mapping()
-        if ckan_attribute in mapping:
-            return mapping[ckan_attribute]
-        raise MappingNotFoundError(
-            "No mapping found for attribute '%s'" % ckan_attribute
-        )
-
     def load(self, meta_xml, include_raw=False):
         if isinstance(meta_xml, basestring):
             meta_xml = loader.from_string(meta_xml)
-
+        mapping = self.get_mapping()
         dcat_metadata = {}
-        for key in self.get_metadata_keys():
-            attribute = self.get_attribute(key)
+        for key, attribute  in mapping.items():
             dcat_metadata[key] = attribute.get_value(
                 xml=meta_xml
             )
