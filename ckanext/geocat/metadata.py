@@ -22,6 +22,51 @@ from ckanext.geocat.values import (
 import logging
 log = logging.getLogger(__name__)
 
+swisstopo_to_ogdch_group_mapping = {
+    'imageryBaseMapsEarthCover': ['geography', 'territory'],
+    'imageryBaseMapsEarthCover_BaseMaps': ['geography', 'territory'],
+    'imageryBaseMapsEarthCover_EarthCover': ['geography', 'territory'],
+    'imageryBaseMapsEarthCover_Imagery': ['geography', 'territory'],
+    'location': ['geography', 'territory'],
+    'elevation': ['geography', 'territory'],
+    'boundaries': ['geography', 'territory'],
+    'planningCadastre': ['geography', 'territory'],
+    'planningCadastre_Planning': ['geography', 'territory'],
+    'planningCadastre_Cadastre': ['geography', 'territory'],
+    'geoscientificInformation': ['geography', 'territory'],
+    'geoscientificInformation_Geology': ['geography', 'territory'],
+    'geoscientificInformation_Soils': ['geography', 'territory'],
+    'geoscientificInformation_NaturalHazards': ['geography', 'territory'],
+    'biota': ['geography', 'territory', 'agriculture'],
+    'oceans': ['geography', 'territory'],
+    'inlandWaters': ['geography', 'territory'],
+    'climatologyMeteorologyAtmosphere': ['geography', 'territory'],
+    'environment': ['geography', 'territory'],
+    'environment_EnvironmentalProtection': ['geography', 'territory'],
+    'environment_NatureProtection': ['geography', 'territory'],
+    'society': ['geography', 'culture', 'population'],
+    'health': ['geography', 'health'],
+    'structure': ['geography', 'construction'],
+    'transportation': ['geography', 'mobility'],
+    'utilitiesCommunication': ['geography', 'territory', 'energy', 'culture'],
+    'utilitiesCommunication_Energy': ['geography', 'energy', 'territory'],
+    'utilitiesCommunication_Utilities': ['geography', 'territory'],
+    'utilitiesCommunication_Communication': ['geography', 'culture'],
+    'intelligenceMilitary': ['geography', 'public-order'],
+    'farming': ['geography', 'agriculture'],
+    'economy': ['geography', 'work', 'national-economy'],
+}
+
+
+def _get_category_mappings_as_set(swisstopo_groups):
+    ogdch_categories = [
+         mapping
+         for group in swisstopo_groups
+         if group in swisstopo_to_ogdch_group_mapping.keys()
+         for mapping in swisstopo_to_ogdch_group_mapping[group]
+    ]
+    return set(ogdch_categories)
+
 
 class DcatMetadata(object):
     """ Provides general access to dataset metadata for DCAT-AP Switzerland """
@@ -188,25 +233,13 @@ class DcatMetadata(object):
         return clean_keywords
 
     def _clean_groups(self, pkg_dict):
-        group_mapping = {
-            'biota': 'agriculture',
-            'health': 'health',
-            'transportation': 'mobility',
-            'intelligenceMilitary': 'public-order',
-            'farming': 'agriculture',
-            'economy': 'national-economy',
-            'utilitiesCommunication_Energy': 'energy',
-            'society': 'culture',
-        }
-        groups = [{'name': 'geography'}]
+        ogdch_groups = []
         if 'groups' in pkg_dict:
-            for group in pkg_dict['groups']:
-                if group in group_mapping:
-                    groups.append({'name': group_mapping[group]})
-                else:
-                    groups.append({'name': 'territory'})
-
-        return groups
+            mapped_categories_set = _get_category_mappings_as_set(
+                pkg_dict['groups'])
+            ogdch_groups = [{'name': mapping}
+                            for mapping in mapped_categories_set]
+        return ogdch_groups
 
     def _clean_accrual_periodicity(self, pkg_dict):
         if 'accrual_periodicity' not in pkg_dict:
