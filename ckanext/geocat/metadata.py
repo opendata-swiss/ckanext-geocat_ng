@@ -45,7 +45,7 @@ class DcatMetadata(object):
             meta_xml = loader.from_string(meta_xml)
         mapping = self.get_mapping()
         dcat_metadata = {}
-        for key, attribute  in mapping.items():
+        for key, attribute in mapping.items():
             dcat_metadata[key] = attribute.get_value(
                 xml=meta_xml
             )
