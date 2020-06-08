@@ -2,6 +2,7 @@
 
 import traceback
 
+from urlparse import urljoin
 from ckan.lib.helpers import json
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from ckanext.harvest.harvesters import HarvesterBase
@@ -48,6 +49,12 @@ class GeocatHarvester(HarvesterBase):
 
         if 'delete_missing_datasets' not in self.config:
             self.config['delete_missing_datasets'] = False
+
+        # get config for geocat permalink
+        self.config['permalink_url'] = tk.config.get('ckanext.geocat.permalink_url', None) # noqa
+        self.config['permalink_bookmark'] = tk.config.get('ckanext.geocat.permalink_bookmark', None) # noqa
+        self.config['permalink_title'] = tk.config.get('ckanext.geocat.permalink_title', 'geocat.ch Permalink') # noqa
+        self.config['permalink_valid'] = self.config['permalink_url'] and self.config['permalink_bookmark'] # noqa
 
         log.debug('Using config: %r' % self.config)
 
@@ -217,6 +224,8 @@ class GeocatHarvester(HarvesterBase):
                         'NonCommercialNotAllowed-CommercialNotAllowed-ReferenceRequired'  # noqa
                     )
 
+            geocat_permalink_relation = \
+                self._get_geocat_permalink_relation(pkg_dict['identifier'])
             pkg_dict['identifier'] = (
                 '%s@%s'
                 % (pkg_dict['identifier'], self.config['organization'])
@@ -249,6 +258,8 @@ class GeocatHarvester(HarvesterBase):
                     'url': legal_basis_url,
                     'label': 'legal_basis'
                 })
+            if geocat_permalink_relation:
+                pkg_dict['relations'].append(geocat_permalink_relation)
 
             log.debug('package dict: %s' % pkg_dict)
 
@@ -418,6 +429,24 @@ class GeocatHarvester(HarvesterBase):
             if extra.key == key:
                 return extra.value
         return None
+
+    def _get_geocat_permalink_relation(self, geocat_pkg_id):
+        """gets backlink for geocat from configuration:
+        the backlink consists of three parts:
+        - a base url
+        - a bookmark
+        - the package id as it comes from geocat
+        """
+        if not self.config['permalink_valid']:
+            return None
+
+        permalink_bookmark_for_pkg = \
+            self.config['permalink_bookmark'] + geocat_pkg_id
+        permalink_url_for_pkg = urljoin(
+            self.config['permalink_url'],
+            permalink_bookmark_for_pkg)
+        return {'url': permalink_url_for_pkg,
+                'label': self.config['permalink_title']}
 
 
 class GeocatConfigError(Exception):
