@@ -6,7 +6,6 @@ from urlparse import urljoin
 from ckan.lib.helpers import json
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from ckanext.harvest.harvesters import HarvesterBase
-from ckanext.switzerland.helpers.localize_utils import localize_by_language_order  # noqa
 import ckanext.geocat.metadata as md
 import ckanext.geocat.xml_loader as loader
 from ckan.logic import get_action, NotFound
@@ -250,7 +249,7 @@ class GeocatHarvester(HarvesterBase):
 
             pkg_dict['owner_org'] = self.config['organization']
             pkg_dict['resources'] = dist_list
-            pkg_dict['name'] = self._gen_new_name(localize_by_language_order(pkg_dict['title']))  # noqa
+            pkg_dict['name'] = self._gen_new_name(_derive_flat_title(pkg_dict['title']) )  # noqa
 
             # legal basis
             legal_basis_url = self.config.get('legal_basis_url', None)
@@ -452,3 +451,8 @@ class GeocatHarvester(HarvesterBase):
 
 class GeocatConfigError(Exception):
     pass
+
+
+def _derive_flat_title(title_dict):
+    """localizes language dict if no language is specified"""
+    return title_dict.get('de') or title_dict.get('fr') or title_dict.get('en') or title_dict.get('it') or ""  # noqa
