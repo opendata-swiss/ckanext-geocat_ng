@@ -249,7 +249,7 @@ class GeocatHarvester(HarvesterBase):
 
             pkg_dict['owner_org'] = self.config['organization']
             pkg_dict['resources'] = dist_list
-            pkg_dict['name'] = self._gen_new_name(pkg_dict['title']['de'])
+            pkg_dict['name'] = self._gen_new_name(_derive_flat_title(pkg_dict['title']) )  # noqa
 
             # legal basis
             legal_basis_url = self.config.get('legal_basis_url', None)
@@ -451,3 +451,8 @@ class GeocatHarvester(HarvesterBase):
 
 class GeocatConfigError(Exception):
     pass
+
+
+def _derive_flat_title(title_dict):
+    """localizes language dict if no language is specified"""
+    return title_dict.get('de') or title_dict.get('fr') or title_dict.get('en') or title_dict.get('it') or ""  # noqa
