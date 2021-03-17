@@ -249,7 +249,13 @@ class GeocatHarvester(HarvesterBase):
 
             pkg_dict['owner_org'] = self.config['organization']
             pkg_dict['resources'] = dist_list
-            pkg_dict['name'] = self._gen_new_name(_derive_flat_title(pkg_dict['title']) )  # noqa
+            flat_title = _derive_flat_title(pkg_dict['title'])
+            if not flat_title:
+                self._save_object_error('Unable to derive name from title %s' % pkg_dict['title'],  # noqa
+                                        harvest_object, 'Import')
+                return False
+
+            pkg_dict['name'] = self._gen_new_name(flat_title)  # noqa
 
             # legal basis
             legal_basis_url = self.config.get('legal_basis_url', None)
