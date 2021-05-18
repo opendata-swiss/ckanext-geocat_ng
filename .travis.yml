@@ -17,6 +17,6 @@ services:
     - postgresql
 
 install:
-    - bash travis-build.bash
+    - bash bin/travis-build.bash
 
 script: bin/travis-run.sh
