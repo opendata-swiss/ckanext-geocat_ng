@@ -348,6 +348,19 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'relations': ArrayValue(
                 [
                     XPathSubValue(
+                        '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK"])[position()>1]',  # noqa
+                        sub_attributes=[
+                            FirstInOrderValue([
+                                XPathValue('.//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL[@locale = "#FR"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL[@locale = "#IT"]/text()'),  # noqa
+                                XPathValue('.//che:LocalisedURL/text()'),  # noqa
+                            ]),
+                            XPathValue('.//gmd:description/gco:CharacterString/text()'),  # noqa
+                        ]
+                    ),
+                    XPathSubValue(
                         '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"])[position()>1]',  # noqa
                         sub_attributes=[
                             FirstInOrderValue([
@@ -380,6 +393,11 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'keywords_it': XPathMultiValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#IT"]/text()'),  # noqa
             'keywords_en': XPathMultiValue('//gmd:identificationInfo//gmd:descriptiveKeywords//gmd:keyword//gmd:textGroup//gmd:LocalisedCharacterString[@locale="#EN"]/text()'),  # noqa
             'url': FirstInOrderValue([
+                XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK"]//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
+                XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK"]//che:LocalisedURL[@locale = "#FR"]/text()'),  # noqa
+                XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK"]//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
+                XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK"]//che:LocalisedURL[@locale = "#IT"]/text()'),  # noqa
+                XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK"]//che:LocalisedURL/text()'),  # noqa
                 XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
                 XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL[@locale = "#FR"]/text()'),  # noqa
                 XPathValue('//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK-1.0-http--link"]//che:LocalisedURL[@locale = "#EN"]/text()'),  # noqa
@@ -492,6 +510,10 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
             "OGC:WFS-http-get-capabilities": "WFS (GetCapabilities)",
             "WWW:DOWNLOAD-1.0-http--download": "Download",
             "WWW:DOWNLOAD-URL": "Download",
+            "OGC:WMS": "OGC:WMS",
+            "OGC:WFS": "OGC:WFS",
+            "OGC:WMTS": "OGC:WMTS",
+            "WWW:DOWNLOAD-FTP": "Download",
         }
         try:
             title = protocol_title[dist['protocol']]
@@ -620,7 +642,7 @@ class GeocatDcatServiceDistributionMetadata(GeocatDcatDistributionMetadata):
 
     def get_metadata(self, xml, dataset_meta):
         service_distributions = []
-        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
+        for dist_xml in loader.xpath(xml, '//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "OGC:WFS" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMTS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-map" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WMS-http-get-capabilities" or .//gmd:protocol/gco:CharacterString/text() = "OGC:WFS-http-get-capabilities"]'):  # noqa
             orig_dist = self._handle_single_distribution(
                 dist_xml,
                 dataset_meta
