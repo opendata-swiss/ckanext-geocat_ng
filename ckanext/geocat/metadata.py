@@ -348,8 +348,7 @@ class GeocatDcatDatasetMetadata(DcatMetadata):
             'relations': ArrayValue(
                 [
                     XPathSubValue(
-                        '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK"])[position()>1]',
-                        # noqa
+                        '(//gmd:distributionInfo/gmd:MD_Distribution//gmd:transferOptions//gmd:CI_OnlineResource[.//gmd:protocol/gco:CharacterString/text() = "WWW:LINK"])[position()>1]',  # noqa
                         sub_attributes=[
                             FirstInOrderValue([
                                 XPathValue('.//che:LocalisedURL[@locale = "#DE"]/text()'),  # noqa
