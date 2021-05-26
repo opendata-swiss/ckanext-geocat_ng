@@ -510,9 +510,9 @@ class GeocatDcatDistributionMetadata(DcatMetadata):
             "OGC:WFS-http-get-capabilities": "WFS (GetCapabilities)",
             "WWW:DOWNLOAD-1.0-http--download": "Download",
             "WWW:DOWNLOAD-URL": "Download",
-            "OGC:WMS": "OGC:WMS",
-            "OGC:WFS": "OGC:WFS",
-            "OGC:WMTS": "OGC:WMTS",
+            "OGC:WMS": "WMS (GetMap)",
+            "OGC:WFS": "WFS (GetCapabilities)",
+            "OGC:WMTS": "WMTS (GetCapabilities)",
             "WWW:DOWNLOAD-FTP": "Download",
         }
         try:
