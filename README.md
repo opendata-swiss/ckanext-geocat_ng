@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/opendata-swiss/ckanext-geocat.svg?branch=master)](https://travis-ci.org/opendata-swiss/ckanext-geocat)
 
-ckanext-geocat
-=============
+ckanext-geocat_ng
+=================
 
 This extension harvests data from the Swiss CSW service [geocat.ch](http://geocat.ch) to the Swiss open data portal [opendata.swiss](https://opendata.swiss).
 The source format is ISO-19139_che (Swiss version of ISO-19139), the target format is DCAT-AP Switzerland.
