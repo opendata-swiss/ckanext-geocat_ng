@@ -67,7 +67,7 @@ pip install -r pip-requirements.txt
 paster harvester initdb -c ../ckan/test-core.ini
 cd -
 
-echo "Installing ckanext-geocat and its requirements..."
+echo "Installing ckanext-geocat_ng and its requirements..."
 pip install -r requirements.txt
 pip install -r dev-requirements.txt
 python setup.py develop
