@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 class GeocatCatalogueServiceWeb(object):
     def __init__(self, url):
         self.csw = CatalogueServiceWeb(url)
-        self.schema = csw_mapping.namespaces['che']
+        self.schema = csw_mapping.gmd_namespaces['che']
 
     def get_geocat_id_from_csw(self):
         harvest_query = PropertyIsEqualTo('keyword', 'opendata.swiss')
@@ -36,13 +36,12 @@ class GeocatCatalogueServiceWeb(object):
         return record_ids
 
     def get_record_by_id(self, geocat_id):
-        # self.schema = 'http://www.geocat.ch/2008/che'
         self.csw.getrecordbyid(id=[geocat_id], outputschema=self.schema)
         csw_record_as_string = self.csw.response
         if csw_record_as_string:
-            dataset_dict = csw_mapping.process_geodata(csw_record_as_string)
-            log.error(dataset_dict)
-            return dataset_dict
+            return csw_record_as_string
+        else:
+            return None
 
 
 class DatasetNotFoundError(Exception):

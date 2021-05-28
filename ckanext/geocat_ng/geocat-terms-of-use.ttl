@@ -1,0 +1,90 @@
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dc11: <http://purl.org/dc/elements/1.1/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dc: <http://purl.org/dc/terms/> .
+
+<http://metawal.wallonie.be/thesaurus/conditions>
+  a skos:ConceptScheme ;
+  dc11:title "Conditions d'utilisation et d'accÃ¨s, version 1.0" ;
+  dc11:description "Conditions d'utilisation et d'accÃ¨s" ;
+  dc11:creator [
+    a foaf:Organization ;
+    foaf:name "geocat.ch"
+  ] ;
+  dc:issued "2019-09-24" ;
+  dc:modified "2019-09-24" .
+
+<https://opendata.swiss/en/terms-of-use/#terms_open>
+  a skos:Concept ;
+  skos:prefLabel "Opendata OPEN: Open use."@en, "Opendata OPEN: Utilisation libre."@fr, "Opendata OPEN: Freie Nutzung."@de, "Opendata OPEN: Libero utilizzo."@it, "Opendata OPEN: Freie Nutzung."@ro ;
+  skos:mappingRelation "NonCommercialAllowed-CommercialAllowed-ReferenceNotRequired" .
+
+<https://opendata.swiss/en/terms-of-use/#terms_by>
+  a skos:Concept ;
+  skos:prefLabel "Opendata BY: Open use. Must provide the source."@en, "Opendata BY: Utilisation libre. Obligation dâ€™indiquer la source."@fr, "Opendata BY: Freie Nutzung. Quellenangabe ist Pflicht."@de, "Opendata BY: Libero utilizzo. Indicazione della fonte obbligatoria. Utilizzo a fini commerciali ammesso soltanto previo consenso del titolare dei dati"@it, "Opendata BY: Freie Nutzung. Quellenangabe ist Pflicht."@ro ;
+  skos:mappingRelation "NonCommercialAllowed-CommercialAllowed-ReferenceRequired" .
+
+<https://opendata.swiss/en/terms-of-use/#terms_ask>
+  a skos:Concept ;
+  skos:prefLabel "Opendata ASK: Open use. Use for commercial purposes requires permission of the data owner."@en, "Opendata ASK: Utilisation libre. Utilisation Ã  des fins commerciales uniquement avec lâ€™autorisation du fournisseur des donnÃ©es."@fr, "Opendata ASK: Freie Nutzung. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulÃ¤ssig."@de, "Opendata ASK: Libero utilizzo. Utilizzo a fini commerciali ammesso soltanto previo consenso del titolare dei dati."@it, "Opendata ASK: Freie Nutzung. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulÃ¤ssig."@ro ;
+  skos:mappingRelation "NonCommercialAllowed-CommercialWithPermission-ReferenceNotRequired" .
+
+<https://opendata.swiss/en/terms-of-use/#terms_by_ask>
+  a skos:Concept ;
+  skos:prefLabel "Opendata BY ASK: Open use. Must provide the source. Use for commercial purposes requires permission of the data owner."@en, "Opendata BY ASK: Utilisation libre. Obligation dâ€™indiquer la source. Utilisation commerciale uniquement avec lâ€™autorisation du fournisseur des donnÃ©es."@fr, "Opendata BY ASK: Freie Nutzung. Quellenangabe ist Pflicht. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulÃ¤ssig."@de, "Opendata BY ASK: Libero utilizzo. Indicazione della fonte obbligatoria. Utilizzo a fini commerciali ammesso soltanto previo consenso del titolare dei dati."@it, "Opendata BY ASK: Freie Nutzung. Quellenangabe ist Pflicht. Kommerzielle Nutzung nur mit Bewilligung des Datenlieferanten zulÃ¤ssig."@ro ;
+  skos:mappingRelation "NonCommercialAllowed-CommercialWithPermission-ReferenceRequired" .
+
+<https://registry.geocat.ch/use-limitation/restricted-access>
+  a skos:Concept ;
+  skos:prefLabel "Access restricted."@en, "AccÃ¨s restreint."@fr, "Zugang eingeschrÃ¤nkt."@de, ""@it, "Zugang eingeschrÃ¤nkt."@ro ;
+  skos:mappingRelation "ClosedData".
+
+<https://registry.geocat.ch/use-limitation/levelA>
+  a skos:Concept ;
+  skos:prefLabel "Publicly accessible basic geodata : level A (GeoIV, Art. 21)."@en, "GÃ©odonnÃ©es de base accessibles au public: niveau A (selon lâ€™OGÃ©o, art. 21)."@fr, "Ã–ffentlich zugÃ¤ngliche Geobasisdaten: Zugangsberechtigungsstufe A (nach GeoIV, Art. 21)."@de, ""@it, ""@ro ;
+  skos:mappingRelation "ClosedData".
+
+<https://registry.geocat.ch/use-limitation/levelB>
+  a skos:Concept ;
+  skos:prefLabel "Basic geodata partially accessible to the public : level B (GeoIV, Art. 21)."@en, "GÃ©odonnÃ©es de base partiellement accessibles au public: niveau B (selon lâ€™OGÃ©o, art. 21)."@fr, "BeschrÃ¤nkt Ã¶ffentlich zugÃ¤ngliche Geobasisdaten: Zugangsberechtigungsstufe B (nach GeoIV, Art. 21)."@de, ""@it, ""@ro ;
+  skos:mappingRelation "ClosedData".
+
+<https://registry.geocat.ch/use-limitation/levelC>
+  a skos:Concept ;
+  skos:prefLabel "Non-publicly accessible basic geodata : level C (GeoIV, art. 21)."@en, "GÃ©odonnÃ©es de base non accessibles au public: niveau C (selon lâ€™OGÃ©o, art. 21)."@fr, "Nicht Ã¶ffentlich zugÃ¤ngliche Geobasisdaten: Zugangsberechtigungsstufe C (nach GeoIV, Art. 21)"@de, ""@it, ""@ro ;
+  skos:mappingRelation "ClosedData".
+
+<https://registry.geocat.ch/use-limitation/license>
+  a skos:Concept ;
+  skos:prefLabel "Subject to license."@en, "Sous licence."@fr, "Lizenzpflichtig."@de, ""@it, ""@ro ;
+  skos:mappingRelation "ClosedData".
+
+<https://registry.geocat.ch/use-limitation/fee>
+  a skos:Concept ;
+  skos:prefLabel "Subject to a fee."@en, "Service payant."@fr, "Kostenpflichtig."@de, ""@it, ""@ro ;
+  skos:mappingRelation "ClosedData".
+
+<https://registry.geocat.ch/use-limitation/internal-use-only>
+  a skos:Concept ;
+  skos:prefLabel "For internal use only."@en, "Statut interne."@fr, "Nur fÃ¼r interne Nutzung."@de, ""@it, ""@ro ;
+  skos:mappingRelation "ClosedData".
+
+<https://registry.geocat.ch/use-limitation/all-attributes-not-public>
+  a skos:Concept ;
+  skos:prefLabel "Not all attributes are public."@en, "Tous les attributs ne sont pas publics."@fr, "Nicht alle Attribute Ã¶ffentlich."@de, ""@it, ""@ro ;
+  skos:mappingRelation "ClosedData".
+
+<https://registry.geocat.ch/use-limitation/cantonal-terms>
+  a skos:Concept ;
+  skos:prefLabel "Free use under consideration of the cantonal terms of use for geodata or contractual arrangements."@en, "Les donnÃ©es peuvent Ãªtre utilisÃ©es librement et sont soumises aux conditions dâ€™utilisation applicables aux donnÃ©es gÃ©ographiques cantonales, resp. au contrat en vigueur."@fr, "Freie Nutzung unter BerÃ¼cksichtigung der fÃ¼r kt. Geodaten geltenden Nutzungsbedingungen bzw. vertraglichen Regelungen."@de, ""@it, ""@ro ;
+  skos:mappingRelation "ClosedData".
+
+<http://inspire.ec.europa.eu/metadata-codelist/ConditionsApplyingToAccessAndUse/conditionsUnknown>
+  a skos:Concept ;
+  skos:prefLabel "Conditions to access and use unknown"@en, "Conditions to access and use unknown"@fr, "Conditions to access and use unknown"@de, "Conditions to access and use unknown"@it, "Conditions to access and use unknown"@ro ;
+  skos:mappingRelation "ClosedData".
+
+<http://inspire.ec.europa.eu/metadata-codelist/ConditionsApplyingToAccessAndUse/noConditionsApply>
+  a skos:Concept ;
+  skos:prefLabel "No conditions to access and use"@en, "No conditions to access and use"@fr, "No conditions to access and use"@de, "No conditions to access and use"@it, "No conditions to access and use"@ro ;
+  skos:mappingRelation "ClosedData".
