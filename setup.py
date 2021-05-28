@@ -78,7 +78,7 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points='''
         [ckan.plugins]
-        geocat_ng_harvester=ckanext.geocat.harvester:GeocatNGHarvester
+        geocat_ng_harvester=ckanext.geocat.harvester:GeocatHarvester
         [paste.paster_command]
         geocat_ng=ckanext.geocat.commands:GeocatCommand
     ''',
